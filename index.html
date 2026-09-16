@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#f8f3f0">
+  <meta name="description" content="Wedding Planner digital da Cor Púrpura para organizar o casamento num só lugar.">
+  <title>Agenda da Noiva — Cor Púrpura</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Navegação principal">
+      <a class="brand" href="#dashboard" aria-label="Agenda da Noiva — início">
+        <span class="brand-script">Agenda da Noiva</span>
+        <span class="brand-heart">♡</span>
+      </a>
+      <nav id="desktop-nav" class="nav-list"></nav>
+      <div class="profile-card">
+        <span class="avatar">A</span>
+        <span><strong>Olá, Ana!</strong><small>Ver perfil</small></span>
+      </div>
+    </aside>
+
+    <section class="workspace">
+      <header class="topbar">
+        <button class="icon-button mobile-menu" id="mobile-menu" aria-label="Abrir menu"></button>
+        <div class="topbar-copy">
+          <p id="page-kicker"></p>
+          <h1 id="page-title"></h1>
+        </div>
+        <div class="topbar-actions">
+          <button class="icon-button" id="global-search" aria-label="Pesquisar"></button>
+          <button class="icon-button notification-button" aria-label="Notificações"><span class="notification-dot"></span></button>
+          <span class="avatar avatar-large">A</span>
+        </div>
+      </header>
+      <main id="view" tabindex="-1"></main>
+    </section>
+  </div>
+
+  <nav id="mobile-nav" class="mobile-nav" aria-label="Navegação mobile"></nav>
+
+  <dialog id="modal" class="modal">
+    <form method="dialog" class="modal-card" id="modal-form">
+      <header>
+        <div><p class="eyebrow">AGENDA DA NOIVA</p><h2 id="modal-title"></h2></div>
+        <button class="icon-button" value="cancel" aria-label="Fechar" id="modal-close"></button>
+      </header>
+      <div id="modal-fields" class="modal-fields"></div>
+      <footer>
+        <button class="button button-ghost" value="cancel">Cancelar</button>
+        <button class="button button-primary" value="default" id="modal-submit">Guardar</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <input type="file" id="import-file" accept="application/json" hidden>
+</body>
+</html>
