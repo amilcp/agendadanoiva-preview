@@ -419,14 +419,15 @@ function safeExternalUrl(value) {
 
 const inspirationModal=$('#inspiration-modal');
 const inspirationForm=$('#inspiration-form');
+let selectedInspirationFile=null;
 function openInspirationModal(id='') {
   const item=state.customInspirations.find(entry=>entry.id===id);
   inspirationForm.reset();
+  selectedInspirationFile=null;
   inspirationForm.dataset.itemId=item?.id||'';
   $('#inspiration-modal-title').textContent=item?'Editar inspiração':'Adicionar inspiração';
   $('#inspiration-modal-submit').textContent=item?'Guardar alterações':'Guardar inspiração';
-  const imageInput=$('#inspiration-image-file');
-  imageInput.required=!item;
+  $('#inspiration-file-status').textContent=item?'Fotografia atual mantida. Escolhe outra apenas se a quiseres substituir.':'Escolhe uma fotografia existente ou tira uma nova. A imagem será otimizada automaticamente.';
   if (item) {
     inspirationForm.elements.title.value=item.title||'';
     inspirationForm.elements.category.value=item.category||'outra';
@@ -440,6 +441,7 @@ function openInspirationModal(id='') {
 function closeInspirationModal() {
   if (inspirationModal.open) inspirationModal.close();
   inspirationForm.reset();
+  selectedInspirationFile=null;
   inspirationForm.dataset.itemId='';
   setInspirationPreview('');
 }
@@ -467,7 +469,7 @@ async function saveCustomInspiration() {
   const formData=new FormData(inspirationForm);
   const existingId=inspirationForm.dataset.itemId;
   const existing=state.customInspirations.find(item=>item.id===existingId);
-  const file=$('#inspiration-image-file').files[0];
+  const file=selectedInspirationFile;
   const image=file?await resizeInspirationImage(file):existing?.image;
   if (!image) throw new Error('Adiciona uma fotografia à inspiração.');
   const category=String(formData.get('category')||'outra');
@@ -664,13 +666,16 @@ $('#inspiration-modal-close').innerHTML=icon('close');
 $('#inspiration-modal-close').addEventListener('click',closeInspirationModal);
 $('#inspiration-modal-cancel').addEventListener('click',closeInspirationModal);
 inspirationModal.addEventListener('click',event=>{if(event.target===inspirationModal)closeInspirationModal()});
-inspirationModal.addEventListener('close',()=>{inspirationForm.reset();inspirationForm.dataset.itemId='';setInspirationPreview('')});
-$('#inspiration-image-file').addEventListener('change',async event=>{
+inspirationModal.addEventListener('close',()=>{inspirationForm.reset();selectedInspirationFile=null;inspirationForm.dataset.itemId='';setInspirationPreview('')});
+$$('.inspiration-file-input').forEach(input=>input.addEventListener('change',async event=>{
   const file=event.target.files[0];
-  if (!file) return setInspirationPreview('');
+  if (!file) return;
+  selectedInspirationFile=file;
+  $$('.inspiration-file-input').filter(other=>other!==event.target).forEach(other=>{other.value=''});
+  $('#inspiration-file-status').textContent=`Fotografia selecionada: ${file.name}`;
   try { setInspirationPreview(await readFileAsDataUrl(file)); }
-  catch (error) { toast(error.message); event.target.value=''; }
-});
+  catch (error) { selectedInspirationFile=null;toast(error.message);event.target.value='';setInspirationPreview(''); }
+}));
 inspirationForm.addEventListener('submit',async event=>{
   event.preventDefault();
   const submit=$('#inspiration-modal-submit');
