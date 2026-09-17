@@ -88,7 +88,17 @@ const DEFAULT_STATE = {
     { id: 10, time: '23:30', title: 'Corte do bolo', location: 'Quinta da Serra' },
   ],
   memory: '',
+  inspirationFavorites: [],
+  inspirationNotes: {},
 };
+
+const inspirationItems = [
+  { id:'decoracao-01', category:'decoracao', label:'Decoração', title:'Mesa em tons marfim', copy:'Flores brancas, velas finas e pequenos apontamentos dourados.', image:'assets/inspiration-decoracao.webp' },
+  { id:'vestidos-01', category:'vestidos', label:'Vestidos', title:'Renda com leveza', copy:'Uma silhueta intemporal com textura delicada e movimento natural.', image:'assets/inspiration-vestidos.webp' },
+  { id:'bouquets-01', category:'bouquets', label:'Bouquets', title:'Rosas de jardim', copy:'Branco, blush e verde suave para um bouquet romântico e elegante.', image:'assets/inspiration-bouquets.webp' },
+  { id:'convites-01', category:'convites', label:'Convites', title:'Papel, fita e textura', copy:'Estacionário minimalista em marfim e rosa seco, pronto a personalizar.', image:'assets/inspiration-convites.webp' },
+  { id:'espacos-01', category:'espacos', label:'Espaços', title:'Celebração num jardim português', copy:'Pedra clara, jardim formal e luz quente para uma cerimónia ao ar livre.', image:'assets/inspiration-espacos.webp' },
+];
 
 const modules = [
   ['01','O Nosso Casamento','Visão, prioridades e decisões do casal',78],
@@ -129,6 +139,7 @@ const moduleBlueprints = {
 let state = loadState();
 let guestFilter = 'todos';
 let guestSearch = '';
+let inspirationFilter = 'todos';
 
 function normaliseState(saved = {}) {
     const next = { ...structuredClone(DEFAULT_STATE), ...(saved && typeof saved === 'object' ? saved : {}) };
@@ -136,6 +147,8 @@ function normaliseState(saved = {}) {
       if (!Array.isArray(next[key])) next[key] = structuredClone(DEFAULT_STATE[key]);
     });
     if (!next.couple || typeof next.couple !== 'object' || Array.isArray(next.couple)) next.couple = structuredClone(DEFAULT_STATE.couple);
+    if (!Array.isArray(next.inspirationFavorites)) next.inspirationFavorites = [];
+    if (!next.inspirationNotes || typeof next.inspirationNotes !== 'object' || Array.isArray(next.inspirationNotes)) next.inspirationNotes = {};
     next.plan ||= 'comercial';
     next.moduleWork ||= {};
     modules.forEach(([number,,,seed]) => {
@@ -182,7 +195,7 @@ function moduleProgress(number) {
 
 const navItems = [
   ['dashboard','Dashboard','dashboard'], ['planeamento','Planeamento','plan'], ['orcamento','Orçamento','budget'],
-  ['convidados','Convidados','guests'], ['fornecedores','Fornecedores','suppliers'], ['casamento','O Casamento','heart'],
+  ['convidados','Convidados','guests'], ['fornecedores','Fornecedores','suppliers'], ['casamento','O Casamento','heart'], ['inspiracao','Inspiração','sparkles'],
   ['mesas','Mesas','tables'], ['grande-dia','O Grande Dia','day'], ['memorias','Memórias','memory'], ['edicoes','Edições','sparkles']
 ];
 const mobileItems = [
@@ -193,14 +206,14 @@ function renderNav() {
   const current = route();
   const inModule = current.startsWith('module-');
   $('#desktop-nav').innerHTML = navItems.map(([id,label,ico]) => `<button class="nav-link ${current===id || (id==='casamento'&&inModule)?'active':''}" data-nav="${id}">${icon(ico)}<span>${label}</span></button>`).join('');
-  $('#mobile-nav').innerHTML = mobileItems.map(([id,label,ico]) => `<button class="nav-link ${current===id || (id==='casamento'&&inModule) || (id==='mais' && ['fornecedores','mesas','grande-dia','memorias','edicoes','mais'].includes(current))?'active':''}" data-nav="${id}">${icon(ico)}<span>${label}</span></button>`).join('');
+  $('#mobile-nav').innerHTML = mobileItems.map(([id,label,ico]) => `<button class="nav-link ${current===id || (id==='casamento'&&inModule) || (id==='mais' && ['fornecedores','inspiracao','mesas','grande-dia','memorias','edicoes','mais'].includes(current))?'active':''}" data-nav="${id}">${icon(ico)}<span>${label}</span></button>`).join('');
 }
 
 const titles = {
   dashboard:['É tão bom ter-te aqui!','Olá, Ana!'], planeamento:['Passo a passo até ao grande dia','Planeamento'], orcamento:['Controla, planeia, realiza','Orçamento'],
   convidados:['As pessoas especiais do nosso dia','Convidados'], fornecedores:['Os profissionais do nosso casamento','Fornecedores'], casamento:['Tudo o que faz parte da nossa história','O Casamento'],
   mesas:['Onde se sentam as pessoas especiais','Mesas'], 'grande-dia':['Tudo a postos para viver este momento','O Grande Dia'], memorias:['Guardar o que realmente importa','Memórias'],
-  mais:['Acesso rápido','Mais'], edicoes:['Comercial e Premium','Edições']
+  inspiracao:['Ideias guardadas para o nosso dia','Inspiração'], mais:['Acesso rápido','Mais'], edicoes:['Comercial e Premium','Edições']
 };
 
 function render() {
@@ -212,7 +225,7 @@ function render() {
   $('#page-kicker').textContent = kicker;
   $('#page-title').textContent = title;
   const renderers = { dashboard: renderDashboard, planeamento: renderPlanning, orcamento: renderBudget, convidados: renderGuests,
-    fornecedores: renderSuppliers, casamento: renderModules, mesas: renderTables, 'grande-dia': renderDay, memorias: renderMemories, mais: renderMore, edicoes: renderEditions };
+    fornecedores: renderSuppliers, casamento: renderModules, inspiracao: renderInspiration, mesas: renderTables, 'grande-dia': renderDay, memorias: renderMemories, mais: renderMore, edicoes: renderEditions };
   $('#view').innerHTML = moduleNumber ? renderModuleDetail(moduleNumber) : (renderers[current] || renderDashboard)();
   bindViewEvents();
   $('#view').focus({preventScroll:true});
@@ -263,7 +276,7 @@ function renderDashboard() {
         </div>
       </div>
     </section>
-    <section class="inspiration-section"><div class="inspiration-head"><h2>Inspiração da semana</h2><button class="link-button" data-nav="casamento">Ver mais →</button></div><div class="inspiration-grid">${['Decoração','Vestidos','Bouquets','Convites','Espaços'].map((label,index)=>`<button class="inspiration-card inspiration-${index+1}" type="button" data-nav="casamento"><span>${label}</span></button>`).join('')}</div></section>`;
+    <section class="inspiration-section"><div class="inspiration-head"><h2>Inspiração da semana</h2><button class="link-button" data-inspiration-category="todos">Ver mais →</button></div><div class="inspiration-grid">${inspirationItems.map(item=>`<button class="inspiration-card" type="button" data-inspiration-category="${item.category}" style="background-image:url('${item.image}')"><span>${item.label}</span></button>`).join('')}</div></section>`;
 }
 function statCard(label,value,foot,progress) { return `<article class="card stat-card"><span class="stat-label">${label}</span><strong class="stat-value">${value}</strong><span class="stat-foot">${foot}</span><div class="progress-track"><div class="progress-bar" style="width:${Math.min(100,progress||0)}%"></div></div></article>`; }
 function editButton(type,id,label) { return `<button class="edit-button" type="button" data-edit="${type}:${id}" aria-label="Editar ${h(label)}" title="Editar">${icon('edit')}</button>`; }
@@ -371,8 +384,21 @@ function renderMemories() {
   return `<section class="card memory-card"><p class="eyebrow">WEDDING BOOK</p><blockquote>“Há momentos que merecem ficar por escrito.”</blockquote><textarea class="textarea" id="memory-text" placeholder="Escreve aqui uma memória, uma frase ou algo que não queres esquecer…">${h(state.memory || '')}</textarea><div class="page-actions" style="margin:14px 0 0">${button('Guardar memória','save-memory')}</div></section>`;
 }
 
+function renderInspiration() {
+  const categories=[['todos','Tudo'],['decoracao','Decoração'],['vestidos','Vestidos'],['bouquets','Bouquets'],['convites','Convites'],['espacos','Espaços'],['favoritos','Favoritos']];
+  const items=inspirationItems.filter(item=>inspirationFilter==='todos'||item.category===inspirationFilter||(inspirationFilter==='favoritos'&&state.inspirationFavorites.includes(item.id)));
+  return `<section class="inspiration-intro card"><div><p class="eyebrow">CURADORIA COR PÚRPURA</p><h2>Ideias para dar forma ao vosso dia</h2><p>Guardem referências, acrescentem notas e construam uma linguagem visual coerente para o casamento.</p></div><div class="inspiration-counter"><strong>${state.inspirationFavorites.length}</strong><span>favoritos</span></div></section>
+    <div class="inspiration-filters">${categories.map(([id,label])=>`<button class="pill ${inspirationFilter===id?'active':''}" type="button" data-inspiration-filter="${id}">${label}</button>`).join('')}</div>
+    <section class="inspiration-library">${items.length?items.map(inspirationCard).join(''):'<div class="card empty-state"><strong>Ainda não existem favoritos.</strong>Guarda as ideias que queres voltar a consultar.</div>'}</section>`;
+}
+
+function inspirationCard(item) {
+  const favorite=state.inspirationFavorites.includes(item.id);
+  return `<article class="card inspiration-library-card"><div class="inspiration-image" style="background-image:url('${item.image}')"><span>${item.label}</span><button class="favorite-button ${favorite?'active':''}" type="button" data-inspiration-favorite="${item.id}" aria-label="${favorite?'Remover dos':'Guardar nos'} favoritos">${favorite?'♥':'♡'}</button></div><div class="inspiration-body"><h3>${item.title}</h3><p>${item.copy}</p><label for="note-${item.id}">Nota do casal</label><textarea class="textarea inspiration-note" id="note-${item.id}" data-inspiration-note-field="${item.id}" placeholder="O que gostaram nesta ideia?">${h(state.inspirationNotes[item.id]||'')}</textarea><button class="button button-primary button-small" type="button" data-save-inspiration-note="${item.id}">Guardar nota</button></div></article>`;
+}
+
 function renderMore() {
-  return `<section class="module-grid">${navItems.filter(([id])=>['fornecedores','mesas','grande-dia','memorias','edicoes'].includes(id)).map(([id,label,ico])=>`<article class="card module-card" data-nav="${id}">${icon(ico)}<h3>${label}</h3><p>${id==='edicoes'?`Edição atual: ${state.plan==='premium'?'Premium':'Comercial'}.`:'Abrir esta área da agenda.'}</p></article>`).join('')}<article class="card module-card" data-action="account">${icon('guests')}<h3>Conta e sincronização</h3><p>Entrar, recuperar o acesso e editar os dados do casamento.</p></article><article class="card module-card" data-action="export-data">${icon('download')}<h3>Exportar dados</h3><p>Guardar uma cópia de segurança em JSON.</p></article><article class="card module-card" data-action="privacy">${icon('day')}<h3>Privacidade e dados</h3><p>Consultar, descarregar ou eliminar os teus dados.</p></article><article class="card module-card" data-action="reset-data">${icon('more')}<h3>Repor demonstração</h3><p>Voltar aos dados iniciais deste protótipo.</p></article></section>`;
+  return `<section class="module-grid">${navItems.filter(([id])=>['fornecedores','inspiracao','mesas','grande-dia','memorias','edicoes'].includes(id)).map(([id,label,ico])=>`<article class="card module-card" data-nav="${id}">${icon(ico)}<h3>${label}</h3><p>${id==='edicoes'?`Edição atual: ${state.plan==='premium'?'Premium':'Comercial'}.`:'Abrir esta área da agenda.'}</p></article>`).join('')}<article class="card module-card" data-action="account">${icon('guests')}<h3>Conta e sincronização</h3><p>Entrar, recuperar o acesso e editar os dados do casamento.</p></article><article class="card module-card" data-action="export-data">${icon('download')}<h3>Exportar dados</h3><p>Guardar uma cópia de segurança em JSON.</p></article><article class="card module-card" data-action="privacy">${icon('day')}<h3>Privacidade e dados</h3><p>Consultar, descarregar ou eliminar os teus dados.</p></article><article class="card module-card" data-action="reset-data">${icon('more')}<h3>Repor demonstração</h3><p>Voltar aos dados iniciais deste protótipo.</p></article></section>`;
 }
 
 function renderEditions() {
@@ -472,6 +498,18 @@ function bindViewEvents(){
     if(destination==='guests-pending'){guestFilter='pendente';guestSearch='';return navigate('convidados');}
     if(destination==='tasks-overdue') return navigate('planeamento');
     if(destination==='guests-without-table') return navigate('mesas');
+  }));
+  $$('[data-inspiration-category]').forEach(el=>el.addEventListener('click',()=>{inspirationFilter=el.dataset.inspirationCategory;navigate('inspiracao');}));
+  $$('[data-inspiration-filter]').forEach(el=>el.addEventListener('click',()=>{inspirationFilter=el.dataset.inspirationFilter;render();}));
+  $$('[data-inspiration-favorite]').forEach(el=>el.addEventListener('click',()=>{
+    const id=el.dataset.inspirationFavorite;
+    state.inspirationFavorites=state.inspirationFavorites.includes(id)?state.inspirationFavorites.filter(item=>item!==id):[...state.inspirationFavorites,id];
+    saveState(state.inspirationFavorites.includes(id)?'Inspiração guardada.':'Inspiração removida dos favoritos.');
+  }));
+  $$('[data-save-inspiration-note]').forEach(el=>el.addEventListener('click',()=>{
+    const id=el.dataset.saveInspirationNote;
+    state.inspirationNotes[id]=$(`[data-inspiration-note-field="${id}"]`)?.value||'';
+    saveState('Nota da inspiração guardada.');
   }));
   $$('[data-edit]').forEach(el=>el.addEventListener('click',event=>{event.stopPropagation();const [type,id]=el.dataset.edit.split(':');openEdit(type,Number(id));}));
   $$('[data-task-toggle]').forEach(el=>el.addEventListener('change',()=>{const t=state.tasks.find(x=>x.id===Number(el.dataset.taskToggle));t.status=el.checked?'concluida':'pendente';saveState();}));
