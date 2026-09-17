@@ -8,10 +8,10 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'">
   <title>Agenda da Noiva — Cor Púrpura</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <link rel="stylesheet" href="styles.css?v=20260917.9">
-  <script defer src="config.js?v=20260917.9"></script>
-  <script defer src="app.js?v=20260917.9"></script>
-  <script defer src="platform.js?v=20260917.9"></script>
+  <link rel="stylesheet" href="styles.css?v=20260917.10">
+  <script defer src="config.js?v=20260917.10"></script>
+  <script defer src="app.js?v=20260917.10"></script>
+  <script defer src="platform.js?v=20260917.10"></script>
 </head>
 <body>
   <div class="app-shell">
@@ -119,6 +119,54 @@
       <footer>
         <button class="button button-ghost" type="button" id="inspiration-modal-cancel">Cancelar</button>
         <button class="button button-primary" type="submit" id="inspiration-modal-submit">Guardar inspiração</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="admin-inspiration-modal" class="modal inspiration-upload-modal">
+    <form class="modal-card" id="admin-inspiration-form">
+      <header>
+        <div><p class="eyebrow">BACKOFFICE · CONTEÚDOS</p><h2 id="admin-inspiration-modal-title">Nova inspiração oficial</h2></div>
+        <button class="icon-button" type="button" aria-label="Fechar" id="admin-inspiration-modal-close"></button>
+      </header>
+      <div class="modal-fields inspiration-form-fields">
+        <label class="field field-full">
+          <span>Imagem</span>
+          <input class="input" id="admin-inspiration-image" type="file" accept="image/*">
+          <small id="admin-inspiration-file-status">JPEG, PNG ou WebP. A imagem será otimizada automaticamente.</small>
+        </label>
+        <div class="inspiration-upload-preview field-full" id="admin-inspiration-preview" hidden></div>
+        <label class="field">
+          <span>Título</span>
+          <input class="input" name="title" type="text" maxlength="80" required>
+        </label>
+        <label class="field">
+          <span>Categoria</span>
+          <select class="input" name="category" required>
+            <option value="decoracao">Decoração</option><option value="vestidos">Vestidos</option><option value="bouquets">Bouquets</option>
+            <option value="convites">Convites</option><option value="espacos">Espaços</option><option value="outra">Outra</option>
+          </select>
+        </label>
+        <label class="field field-full">
+          <span>Descrição</span>
+          <textarea class="textarea" name="copy" maxlength="500" required></textarea>
+        </label>
+        <label class="field field-full">
+          <span>Fonte ou ligação (opcional)</span>
+          <input class="input" name="source" type="url" maxlength="500" placeholder="https://…">
+        </label>
+        <label class="field">
+          <span>Estado</span>
+          <select class="input" name="status"><option value="draft">Rascunho</option><option value="published">Publicada</option><option value="archived">Arquivada</option></select>
+        </label>
+        <label class="field admin-feature-field">
+          <span>Destaque</span>
+          <span class="admin-check"><input name="featured" type="checkbox"> Inspiração da semana</span>
+        </label>
+      </div>
+      <footer>
+        <button class="button button-ghost" type="button" id="admin-inspiration-modal-cancel">Cancelar</button>
+        <button class="button button-secondary" type="submit" id="admin-inspiration-modal-submit">Guardar conteúdo</button>
       </footer>
     </form>
   </dialog>
