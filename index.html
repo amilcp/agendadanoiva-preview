@@ -8,10 +8,10 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'">
   <title>Agenda da Noiva — Cor Púrpura</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <link rel="stylesheet" href="styles.css?v=20260917.6">
-  <script defer src="config.js?v=20260917.6"></script>
-  <script defer src="app.js?v=20260917.6"></script>
-  <script defer src="platform.js?v=20260917.6"></script>
+  <link rel="stylesheet" href="styles.css?v=20260917.7">
+  <script defer src="config.js?v=20260917.7"></script>
+  <script defer src="app.js?v=20260917.7"></script>
+  <script defer src="platform.js?v=20260917.7"></script>
 </head>
 <body>
   <div class="app-shell">
@@ -58,6 +58,58 @@
       <footer>
         <button class="button button-ghost" type="button" id="modal-cancel">Cancelar</button>
         <button class="button button-primary" type="submit" id="modal-submit">Guardar</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="inspiration-modal" class="modal inspiration-upload-modal">
+    <form class="modal-card" id="inspiration-form">
+      <header>
+        <div><p class="eyebrow">INSPIRAÇÃO DO CASAL</p><h2 id="inspiration-modal-title">Adicionar inspiração</h2></div>
+        <button class="icon-button" type="button" aria-label="Fechar" id="inspiration-modal-close"></button>
+      </header>
+      <div class="modal-fields inspiration-form-fields">
+        <label class="field field-full">
+          <span>Fotografia</span>
+          <input class="input" id="inspiration-image-file" name="image" type="file" accept="image/jpeg,image/png,image/webp" capture="environment">
+          <small>No telemóvel podes escolher uma imagem ou usar a câmara. A fotografia será otimizada automaticamente.</small>
+        </label>
+        <div class="inspiration-upload-preview field-full" id="inspiration-upload-preview" hidden></div>
+        <label class="field">
+          <span>Título</span>
+          <input class="input" name="title" type="text" maxlength="80" placeholder="Ex.: Mesa dos noivos" required>
+        </label>
+        <label class="field">
+          <span>Categoria</span>
+          <select class="input" name="category" required>
+            <option value="decoracao">Decoração</option>
+            <option value="vestidos">Vestidos</option>
+            <option value="bouquets">Bouquets</option>
+            <option value="convites">Convites</option>
+            <option value="espacos">Espaços</option>
+            <option value="outra">Outra</option>
+          </select>
+        </label>
+        <label class="field field-full">
+          <span>Fonte ou ligação (opcional)</span>
+          <input class="input" name="source" type="url" maxlength="500" placeholder="https://…">
+        </label>
+        <label class="field field-full">
+          <span>Notas</span>
+          <textarea class="textarea" name="copy" maxlength="500" placeholder="O que querem aproveitar desta ideia?"></textarea>
+        </label>
+        <label class="field field-full">
+          <span>Visibilidade</span>
+          <select class="input" name="visibility">
+            <option value="private">Privada</option>
+            <option value="couple">Partilhada com o casal</option>
+          </select>
+          <small>No preview, ambas as opções ficam guardadas apenas neste navegador.</small>
+        </label>
+      </div>
+      <footer>
+        <button class="button button-ghost" type="button" id="inspiration-modal-cancel">Cancelar</button>
+        <button class="button button-primary" type="submit" id="inspiration-modal-submit">Guardar inspiração</button>
       </footer>
     </form>
   </dialog>
