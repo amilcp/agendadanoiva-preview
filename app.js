@@ -19,6 +19,7 @@ const icons = {
   bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/>',
   menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
   close: '<path d="m6 6 12 12M18 6 6 18"/>',
+  edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   download: '<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>',
   upload: '<path d="M12 16V4M7 9l5-5 5 5M5 21h14"/>',
@@ -263,7 +264,8 @@ function renderDashboard() {
     </section>`;
 }
 function statCard(label,value,foot,progress) { return `<article class="card stat-card"><span class="stat-label">${label}</span><strong class="stat-value">${value}</strong><span class="stat-foot">${foot}</span><div class="progress-track"><div class="progress-bar" style="width:${Math.min(100,progress||0)}%"></div></div></article>`; }
-function taskRow(t) { return `<li class="check-row ${t.status==='concluida'?'done':''}"><input type="checkbox" data-task-toggle="${t.id}" ${t.status==='concluida'?'checked':''} aria-label="Concluir ${h(t.title)}"><span class="task-name">${h(t.title)}</span><span class="meta">${dateFmt.format(new Date(t.due))}</span><button class="delete-button" data-delete="task:${t.id}" aria-label="Eliminar tarefa">×</button></li>`; }
+function editButton(type,id,label) { return `<button class="edit-button" type="button" data-edit="${type}:${id}" aria-label="Editar ${h(label)}" title="Editar">${icon('edit')}</button>`; }
+function taskRow(t) { return `<li class="check-row ${t.status==='concluida'?'done':''}"><input type="checkbox" data-task-toggle="${t.id}" ${t.status==='concluida'?'checked':''} aria-label="Concluir ${h(t.title)}"><span class="task-name">${h(t.title)}</span><span class="meta">${dateFmt.format(new Date(t.due))}</span><span class="row-actions">${editButton('task',t.id,t.title)}<button class="delete-button" type="button" data-delete="task:${t.id}" aria-label="Eliminar tarefa">×</button></span></li>`; }
 
 function renderPlanning() {
   const groups = [['Esta semana',state.tasks.filter(x=>x.status!=='concluida').slice(0,4)],['Próximas',state.tasks.filter(x=>x.status!=='concluida').slice(4)],['Concluídas',state.tasks.filter(x=>x.status==='concluida')]];
@@ -279,7 +281,7 @@ function renderBudget() {
       </div></div>
       <div class="card donut-card"><div class="donut" style="--value:${pct}%"><div class="donut-label"><strong>${pct}%</strong><span class="meta">contratado</span></div></div><div><h2>Distribuição</h2><div class="legend">${[...new Set(state.expenses.map(x=>x.category))].slice(0,6).map((x,i)=>`<span><i style="opacity:${1-i*.1}"></i>${h(x)}</span>`).join('')}</div></div></div>
     </section>${state.plan==='premium' ? renderPremiumFinance(t) : renderPremiumPrompt('Finanças avançadas','Alertas, previsões e comparações automáticas estão disponíveis na edição Premium.')}
-    <section class="card card-pad" style="margin-top:16px"><div class="card-header"><div><h2>Despesas e pagamentos</h2><p>Valores contratados e prestações realizadas.</p></div></div><div class="table-wrap"><table><thead><tr><th>Categoria</th><th>Fornecedor</th><th>Total</th><th>Pago</th><th>Por pagar</th><th>Vencimento</th><th></th></tr></thead><tbody>${state.expenses.map(x=>`<tr><td>${h(x.category)}</td><td>${h(x.supplier)}</td><td>${euro.format(x.total)}</td><td>${euro.format(x.paid)}</td><td>${euro.format(x.total-x.paid)}</td><td>${dateFmt.format(new Date(x.due))}</td><td><button class="delete-button" data-delete="expense:${x.id}">×</button></td></tr>`).join('')}</tbody></table></div></section>`;
+    <section class="card card-pad" style="margin-top:16px"><div class="card-header"><div><h2>Despesas e pagamentos</h2><p>Valores contratados e prestações realizadas.</p></div></div><div class="table-wrap"><table><thead><tr><th>Categoria</th><th>Fornecedor</th><th>Total</th><th>Pago</th><th>Por pagar</th><th>Vencimento</th><th></th></tr></thead><tbody>${state.expenses.map(x=>`<tr><td>${h(x.category)}</td><td>${h(x.supplier)}</td><td>${euro.format(x.total)}</td><td>${euro.format(x.paid)}</td><td>${euro.format(x.total-x.paid)}</td><td>${dateFmt.format(new Date(x.due))}</td><td><span class="row-actions">${editButton('expense',x.id,x.category)}<button class="delete-button" type="button" data-delete="expense:${x.id}" aria-label="Eliminar despesa">×</button></span></td></tr>`).join('')}</tbody></table></div></section>`;
 }
 
 function renderPremiumFinance(t) {
@@ -298,11 +300,11 @@ function renderGuests() {
   return `${actionButtons([button('Exportar','export-data','ghost','download'),button('Importar','import-data','ghost','upload'),button('Adicionar convidado','add-guest')])}
     <section class="grid grid-4">${statCard('Confirmados',c.confirmed,'pessoas',100)}${statCard('Pendentes',c.pending,'respostas',100)}${statCard('Recusaram',c.refused,'convites',100)}${statCard('Total',c.total,'registos',100)}</section>
     <section class="card card-pad" style="margin-top:16px"><div class="toolbar"><div class="searchbox"><input id="guest-search" value="${h(guestSearch)}" placeholder="Pesquisar convidado…" aria-label="Pesquisar convidado"></div><div class="filter-pills">${['todos','confirmado','pendente','recusado'].map(x=>`<button class="pill ${guestFilter===x?'active':''}" data-guest-filter="${x}">${x==='todos'?'Todos':statusLabel(x)}</button>`).join('')}</div></div>
-    <div class="table-wrap"><table><thead><tr><th>Nome</th><th>Grupo</th><th>Resposta</th><th>Pessoas</th><th>Mesa</th><th>Refeição</th><th></th></tr></thead><tbody>${guests.map(g=>`<tr><td>${h(g.name)}</td><td>${h(g.group)}</td><td><span class="status ${g.rsvp}">${statusLabel(g.rsvp)}</span></td><td>${g.people}</td><td>${h(state.tables.find(t=>t.id===g.tableId)?.name || '—')}</td><td>${h(g.meal)}</td><td><button class="delete-button" data-delete="guest:${g.id}">×</button></td></tr>`).join('')}</tbody></table></div></section>`;
+    <div class="table-wrap"><table><thead><tr><th>Nome</th><th>Grupo</th><th>Resposta</th><th>Pessoas</th><th>Mesa</th><th>Refeição</th><th></th></tr></thead><tbody>${guests.map(g=>`<tr><td>${h(g.name)}</td><td>${h(g.group)}</td><td><span class="status ${g.rsvp}">${statusLabel(g.rsvp)}</span></td><td>${g.people}</td><td>${h(state.tables.find(t=>t.id===g.tableId)?.name || '—')}</td><td>${h(g.meal)}</td><td><span class="row-actions">${editButton('guest',g.id,g.name)}<button class="delete-button" type="button" data-delete="guest:${g.id}" aria-label="Eliminar convidado">×</button></span></td></tr>`).join('')}</tbody></table></div></section>`;
 }
 
 function renderSuppliers() {
-  return `${actionButtons([button('Adicionar fornecedor','add-supplier')])}<section class="supplier-grid">${state.suppliers.map(s=>`<article class="card supplier-card"><div class="supplier-visual"></div><div class="supplier-body"><span class="status ${s.status}">${statusLabel(s.status)}</span><h3>${h(s.service)}</h3><p>${h(s.name)}<br>${h(s.contact)}</p><button class="delete-button" data-delete="supplier:${s.id}" aria-label="Eliminar fornecedor">Eliminar</button></div></article>`).join('')}</section>`;
+  return `${actionButtons([button('Adicionar fornecedor','add-supplier')])}<section class="supplier-grid">${state.suppliers.map(s=>`<article class="card supplier-card"><div class="supplier-visual"></div><div class="supplier-body"><span class="status ${s.status}">${statusLabel(s.status)}</span><h3>${h(s.service)}</h3><p>${h(s.name)}<br>${h(s.contact)}</p><div class="card-actions">${editButton('supplier',s.id,s.name)}<button class="delete-button" type="button" data-delete="supplier:${s.id}" aria-label="Eliminar fornecedor">Eliminar</button></div></div></article>`).join('')}</section>`;
 }
 
 function renderModules() {
@@ -345,7 +347,7 @@ function renderCommercialTables() {
   const confirmed=state.guests.filter(g=>g.rsvp==='confirmado');
   return `${actionButtons([button('Adicionar mesa','add-table')])}
     <section class="edition-notice card"><div><span class="edition-chip">COMERCIAL</span><h2>Organização simples e completa</h2><p>Atribui cada convidado a uma mesa. A edição Premium acrescenta planta visual e arrastar e largar.</p></div><button class="button button-ghost" data-nav="edicoes">Comparar edições</button></section>
-    <section class="grid grid-3 table-summary">${state.tables.map(t=>{const used=state.guests.filter(g=>g.tableId===t.id).reduce((sum,g)=>sum+Number(g.people||0),0);return `<article class="card table-summary-card"><div><h3>${h(t.name)}</h3><span>${used}/${t.capacity} lugares</span></div><button class="delete-button" data-delete="table:${t.id}" aria-label="Eliminar ${h(t.name)}">×</button><div class="progress-track"><div class="progress-bar" style="width:${Math.min(100,Math.round(used/t.capacity*100))}%"></div></div></article>`}).join('')}</section>
+    <section class="grid grid-3 table-summary">${state.tables.map(t=>{const used=state.guests.filter(g=>g.tableId===t.id).reduce((sum,g)=>sum+Number(g.people||0),0);return `<article class="card table-summary-card"><div><h3>${h(t.name)}</h3><span>${used}/${t.capacity} lugares</span></div><span class="row-actions">${editButton('table',t.id,t.name)}<button class="delete-button" type="button" data-delete="table:${t.id}" aria-label="Eliminar ${h(t.name)}">×</button></span><div class="progress-track"><div class="progress-bar" style="width:${Math.min(100,Math.round(used/t.capacity*100))}%"></div></div></article>`}).join('')}</section>
     <section class="card card-pad" style="margin-top:16px"><div class="card-header"><div><h2>Distribuição dos convidados</h2><p>Todos os confirmados podem ser organizados sem Premium.</p></div></div><div class="table-wrap"><table><thead><tr><th>Convidado</th><th>Grupo</th><th>Pessoas</th><th>Mesa</th></tr></thead><tbody>${confirmed.map(g=>`<tr><td>${h(g.name)}</td><td>${h(g.group)}</td><td>${g.people}</td><td><select class="select table-select" data-guest-table-select="${g.id}" aria-label="Mesa de ${h(g.name)}"><option value="">Sem mesa</option>${state.tables.map(t=>`<option value="${t.id}" ${g.tableId===t.id?'selected':''}>${h(t.name)}</option>`).join('')}</select></td></tr>`).join('')}</tbody></table></div></section>`;
 }
 
@@ -353,14 +355,14 @@ function renderPremiumTables() {
   const unassigned=state.guests.filter(g=>g.rsvp==='confirmado'&&!g.tableId);
   return `${actionButtons([button('Adicionar mesa','add-table')])}<section class="premium-mode-banner">${icon('sparkles')} Planta visual Premium ativa</section><section class="seating-layout">
     <aside class="card seating-panel"><h2>Sem mesa</h2><div class="guest-pool" data-drop-table="none">${unassigned.length?unassigned.map(guestChip).join(''):'<p class="meta">Todos os confirmados têm mesa.</p>'}</div></aside>
-    <div class="floor">${state.tables.map(t=>{const guests=state.guests.filter(g=>g.tableId===t.id);const used=guests.reduce((sum,g)=>sum+Number(g.people||0),0);return `<article class="table-card" data-drop-table="${t.id}"><header><div><h3>${h(t.name)}</h3><span class="capacity">${used}/${t.capacity} lugares</span></div><button class="delete-button" data-delete="table:${t.id}">×</button></header><div class="table-guests">${guests.map(guestChip).join('')}</div></article>`}).join('')}</div>
+    <div class="floor">${state.tables.map(t=>{const guests=state.guests.filter(g=>g.tableId===t.id);const used=guests.reduce((sum,g)=>sum+Number(g.people||0),0);return `<article class="table-card" data-drop-table="${t.id}"><header><div><h3>${h(t.name)}</h3><span class="capacity">${used}/${t.capacity} lugares</span></div><span class="row-actions">${editButton('table',t.id,t.name)}<button class="delete-button" type="button" data-delete="table:${t.id}" aria-label="Eliminar ${h(t.name)}">×</button></span></header><div class="table-guests">${guests.map(guestChip).join('')}</div></article>`}).join('')}</div>
     <aside class="card seating-panel"><h2>Resumo</h2><div class="grid grid-2">${statCard('Confirmados',guestCounts().confirmed,'pessoas',100)}${statCard('Mesas',state.tables.length,'criadas',100)}</div><p class="meta" style="margin-top:16px">Arrasta cada convidado para a mesa pretendida.</p></aside>
   </section>`;
 }
 function guestChip(g){return `<div class="guest-chip" draggable="true" data-guest-id="${g.id}"><span class="mini-avatar">${h(g.name[0])}</span><span>${h(g.name)}</span></div>`}
 
 function renderDay() {
-  return `${actionButtons([button('Imprimir dossier','print-dossier','ghost','download'),button('Adicionar momento','add-timeline')])}<section class="grid grid-3" style="margin-bottom:16px">${statCard('Data',dateFmt.format(new Date(state.couple.date)),'o grande dia',100)}${statCard('Faltam',daysToWedding(),'dias',100)}${statCard('Momentos',state.timeline.length,'na timeline',100)}</section><section class="card card-pad"><div class="card-header"><div><h2>Timeline</h2><p>O plano operacional do dia.</p></div></div><ol class="timeline">${state.timeline.sort((a,b)=>a.time.localeCompare(b.time)).map(x=>`<li class="timeline-item"><span class="timeline-time">${h(x.time)}</span><i class="timeline-dot"></i><div class="timeline-copy"><strong>${h(x.title)}</strong><span>${h(x.location)}</span></div><button class="delete-button" data-delete="timeline:${x.id}">×</button></li>`).join('')}</ol></section>`;
+  return `${actionButtons([button('Imprimir dossier','print-dossier','ghost','download'),button('Adicionar momento','add-timeline')])}<section class="grid grid-3" style="margin-bottom:16px">${statCard('Data',dateFmt.format(new Date(state.couple.date)),'o grande dia',100)}${statCard('Faltam',daysToWedding(),'dias',100)}${statCard('Momentos',state.timeline.length,'na timeline',100)}</section><section class="card card-pad"><div class="card-header"><div><h2>Timeline</h2><p>O plano operacional do dia.</p></div></div><ol class="timeline">${state.timeline.sort((a,b)=>a.time.localeCompare(b.time)).map(x=>`<li class="timeline-item"><span class="timeline-time">${h(x.time)}</span><i class="timeline-dot"></i><div class="timeline-copy"><strong>${h(x.title)}</strong><span>${h(x.location)}</span></div><span class="row-actions">${editButton('timeline',x.id,x.title)}<button class="delete-button" type="button" data-delete="timeline:${x.id}" aria-label="Eliminar momento">×</button></span></li>`).join('')}</ol></section>`;
 }
 
 function renderMemories() {
@@ -388,19 +390,30 @@ function editionCard(id,name,subtitle,features){
 }
 
 const modal = $('#modal');
+const entityCollections = { task: 'tasks', expense: 'expenses', guest: 'guests', supplier: 'suppliers', table: 'tables', timeline: 'timeline' };
 const schemas = {
-  'add-task': ['Nova tarefa','task',[['title','Tarefa','text',true],['due','Prazo','date',true]]],
+  'add-task': ['Nova tarefa','task',[['title','Tarefa','text',true],['due','Prazo','date',true],['status','Estado','select:pendente|curso|concluida|atrasada',true]]],
   'add-expense': ['Nova despesa','expense',[['category','Categoria','text',true],['supplier','Fornecedor','text',true],['total','Valor total','number',true],['paid','Valor pago','number',true],['due','Vencimento','date',true]]],
   'add-guest': ['Adicionar convidado','guest',[['name','Nome','text',true],['group','Grupo','text',true],['rsvp','Resposta','select:confirmado|pendente|recusado',true],['people','Número de pessoas','number',true],['meal','Refeição / necessidade','text',false]]],
   'add-supplier': ['Adicionar fornecedor','supplier',[['service','Serviço','text',true],['name','Empresa ou profissional','text',true],['status','Estado','select:pendente|avaliacao|contratado',true],['contact','Contacto','text',false]]],
   'add-table': ['Adicionar mesa','table',[['name','Nome da mesa','text',true],['capacity','Capacidade','number',true]]],
   'add-timeline': ['Adicionar momento','timeline',[['time','Hora','time',true],['title','Momento','text',true],['location','Local','text',false]]],
 };
-function openModal(action) {
+function openModal(action, item = null) {
   const [title,entity,fields]=schemas[action];
-  $('#modal-title').textContent=title; $('#modal-form').dataset.entity=entity;
+  const form=$('#modal-form');
+  $('#modal-title').textContent=item ? title.replace(/^(Nova|Adicionar)/,'Editar') : title;
+  form.dataset.entity=entity;
+  if(item) form.dataset.itemId=String(item.id); else delete form.dataset.itemId;
   $('#modal-fields').innerHTML=fields.map(([name,label,type,required])=>fieldMarkup(name,label,type,required)).join('');
+  fields.forEach(([name])=>{const control=form.elements.namedItem(name);if(control&&item?.[name]!==undefined)control.value=item[name]});
   modal.showModal();
+}
+function openEdit(type,id) {
+  const collection=entityCollections[type];
+  const action=Object.keys(schemas).find(key=>schemas[key][1]===type);
+  const item=collection ? state[collection].find(entry=>entry.id===id) : null;
+  if(action&&item) openModal(action,item);
 }
 function fieldMarkup(name,label,type,required){
   const req=required?'required':'';
@@ -408,14 +421,28 @@ function fieldMarkup(name,label,type,required){
   return `<div class="field ${name==='title'||name==='name'||name==='category'||name==='service'?'field-full':''}"><label for="${name}">${label}</label><input class="input" id="${name}" name="${name}" type="${type}" ${req}></div>`;
 }
 function saveModal(form) {
-  const data=Object.fromEntries(new FormData(form).entries()); const entity=form.dataset.entity;
-  if(entity==='task') state.tasks.push({id:nextId(state.tasks),title:data.title,due:data.due,status:'pendente'});
-  if(entity==='expense') state.expenses.push({id:nextId(state.expenses),category:data.category,supplier:data.supplier,total:Number(data.total),paid:Number(data.paid),due:data.due});
-  if(entity==='guest') state.guests.push({id:nextId(state.guests),name:data.name,group:data.group,rsvp:data.rsvp,people:Number(data.people),meal:data.meal||'Normal',tableId:null});
-  if(entity==='supplier') state.suppliers.push({id:nextId(state.suppliers),service:data.service,name:data.name,status:data.status,contact:data.contact});
-  if(entity==='table') state.tables.push({id:nextId(state.tables),name:data.name,capacity:Number(data.capacity)});
-  if(entity==='timeline') state.timeline.push({id:nextId(state.timeline),time:data.time,title:data.title,location:data.location});
-  modal.close(); form.reset(); saveState('Guardado com sucesso.');
+  const data=Object.fromEntries(new FormData(form).entries());
+  const entity=form.dataset.entity;
+  const collection=entityCollections[entity];
+  const itemId=Number(form.dataset.itemId || 0);
+  const existing=itemId ? state[collection]?.find(item=>item.id===itemId) : null;
+  let record;
+  if(entity==='task') record={title:data.title,due:data.due,status:data.status||'pendente'};
+  if(entity==='expense') record={category:data.category,supplier:data.supplier,total:Number(data.total),paid:Number(data.paid),due:data.due};
+  if(entity==='guest') record={name:data.name,group:data.group,rsvp:data.rsvp,people:Number(data.people),meal:data.meal||'Normal',tableId:existing?.tableId??null};
+  if(entity==='supplier') record={service:data.service,name:data.name,status:data.status,contact:data.contact};
+  if(entity==='table') record={name:data.name,capacity:Number(data.capacity)};
+  if(entity==='timeline') record={time:data.time,title:data.title,location:data.location};
+  if(existing) Object.assign(existing,record);
+  else state[collection].push({id:nextId(state[collection]),...record});
+  closeModal();
+  saveState(existing?'Alterações guardadas.':'Guardado com sucesso.');
+}
+function closeModal() {
+  if(modal.open) modal.close();
+  const form=$('#modal-form');
+  form.reset();
+  delete form.dataset.itemId;
 }
 
 function deleteItem(type,id) {
@@ -438,6 +465,7 @@ function bindViewEvents(){
   $$('[data-nav]').forEach(el=>el.addEventListener('click',()=>navigate(el.dataset.nav)));
   $$('[data-nav][tabindex]').forEach(el=>el.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();navigate(el.dataset.nav)}}));
   $$('[data-action]').forEach(el=>el.addEventListener('click',()=>handleAction(el.dataset.action,el)));
+  $$('[data-edit]').forEach(el=>el.addEventListener('click',event=>{event.stopPropagation();const [type,id]=el.dataset.edit.split(':');openEdit(type,Number(id));}));
   $$('[data-task-toggle]').forEach(el=>el.addEventListener('change',()=>{const t=state.tasks.find(x=>x.id===Number(el.dataset.taskToggle));t.status=el.checked?'concluida':'pendente';saveState();}));
   $$('[data-delete]').forEach(el=>el.addEventListener('click',()=>{const [type,id]=el.dataset.delete.split(':');deleteItem(type,Number(id));}));
   $$('[data-guest-filter]').forEach(el=>el.addEventListener('click',()=>{guestFilter=el.dataset.guestFilter;render();}));
@@ -476,6 +504,9 @@ function handleAction(action,source){
 
 $('#modal-form').addEventListener('submit',e=>{e.preventDefault();saveModal(e.currentTarget)});
 $('#modal-close').innerHTML=icon('close');
+$('#modal-close').addEventListener('click',closeModal);
+$('#modal-cancel').addEventListener('click',closeModal);
+modal.addEventListener('click',event=>{if(event.target===modal)closeModal()});
 $('#global-search').innerHTML=icon('search');
 $('.notification-button').insertAdjacentHTML('afterbegin',icon('bell'));
 $('#mobile-menu').innerHTML=icon('menu');
