@@ -611,7 +611,7 @@ function renderAdmin(section='overview') {
   else if (adminAccess.mode==='online'&&!adminAccess.allowed) content=`<section class="card admin-locked"><span class="account-mark">♡</span><p class="eyebrow">ACESSO RESTRITO</p><h2>Esta conta não tem permissões de administração</h2><p>Podes continuar a utilizar a Agenda da Noiva, mas não podes aceder aos dados do negócio.</p><button class="button button-ghost" type="button" data-nav="dashboard">Voltar à aplicação</button></section>`;
   else content=renderAdminSection(section);
   const [kicker,title]=adminSectionTitles[section];
-  return `<div class="admin-shell"><aside class="admin-sidebar"><div class="admin-brand"><span class="brand-script">Agenda<br>da Noiva</span><small>Administração</small></div><nav class="admin-nav">${adminMenuItems.map(([id,label,ico])=>`<button class="admin-nav-link ${section===id?'active':''}" type="button" data-admin-nav="${id}">${icon(ico)}<span>${label}</span></button>`).join('')}</nav><button class="admin-back" type="button" data-nav="dashboard">${icon('heart')}<span>Voltar à Agenda</span></button></aside><section class="admin-workspace"><header class="admin-topbar"><div><p>${kicker}</p><h1>${title}</h1></div><div class="admin-topbar-actions"><span class="admin-mode-chip">${adminAccess.mode==='online'?'Online':'Demonstração'}</span><span class="admin-user-chip"><span class="avatar">A</span>${adminAccess.role==='editor'?'Editor':'Administrador'}</span></div></header><main class="admin-main">${content}</main></section></div>`;
+  return `<div class="admin-shell"><aside class="admin-sidebar"><div class="admin-brand"><span class="brand-script">Agenda<br>da Noiva</span><small>Administração</small></div><nav class="admin-nav">${adminMenuItems.map(([id,label,ico])=>`<button class="admin-nav-link ${section===id?'active':''}" type="button" data-admin-nav="${id}">${icon(ico)}<span>${label}</span></button>`).join('')}</nav><button class="admin-back" type="button" data-nav="dashboard">${icon('heart')}<span>Voltar à Agenda</span></button></aside><button class="admin-menu-overlay" type="button" data-admin-menu-close aria-label="Fechar menu"></button><section class="admin-workspace"><header class="admin-topbar"><div class="admin-topbar-title"><button class="admin-menu-toggle" type="button" data-admin-menu-toggle aria-label="Abrir menu de administração" aria-expanded="false">${icon('menu')}</button><div><p>${kicker}</p><h1>${title}</h1></div></div><div class="admin-topbar-actions"><span class="admin-mode-chip">${adminAccess.mode==='online'?'Online':'Demonstração'}</span><span class="admin-user-chip"><span class="avatar">A</span>${adminAccess.role==='editor'?'Editor':'Administrador'}</span></div></header><main class="admin-main">${content}</main></section></div>`;
 }
 
 function renderAdminSection(section) {
@@ -736,6 +736,16 @@ function toast(message){const t=$('#toast');t.textContent=message;t.classList.ad
 function bindViewEvents(){
   $$('[data-nav]').forEach(el=>el.addEventListener('click',()=>navigate(el.dataset.nav)));
   $$('[data-admin-nav]').forEach(el=>el.addEventListener('click',()=>navigate(el.dataset.adminNav==='overview'?'admin':`admin/${el.dataset.adminNav}`)));
+  $('[data-admin-menu-toggle]')?.addEventListener('click',event=>{
+    const open=$('.admin-sidebar')?.classList.toggle('open');
+    $('.admin-menu-overlay')?.classList.toggle('open',Boolean(open));
+    event.currentTarget.setAttribute('aria-expanded',String(Boolean(open)));
+  });
+  $('[data-admin-menu-close]')?.addEventListener('click',()=>{
+    $('.admin-sidebar')?.classList.remove('open');
+    $('.admin-menu-overlay')?.classList.remove('open');
+    $('[data-admin-menu-toggle]')?.setAttribute('aria-expanded','false');
+  });
   $$('[data-nav][tabindex]').forEach(el=>el.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();navigate(el.dataset.nav)}}));
   $$('[data-action]').forEach(el=>el.addEventListener('click',()=>handleAction(el.dataset.action,el)));
   $$('[data-dashboard-jump]').forEach(el=>el.addEventListener('click',()=>{
