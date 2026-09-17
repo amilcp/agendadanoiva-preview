@@ -142,6 +142,10 @@ a { color: inherit; text-decoration: none; }
 .card-actions { width:100%; justify-content:space-between; margin-top:8px; }
 .alert-row { grid-template-columns: auto 1fr; }
 .alert-icon { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: var(--peach-soft); color: #b86f58; }
+.alert-link { width:100%; grid-template-columns:auto 1fr auto; border:0; background:transparent; color:inherit; text-align:left; cursor:pointer; border-radius:9px; transition:.18s ease; }
+.alert-link:hover, .alert-link:focus-visible { background:var(--surface-soft); color:var(--plum); outline:2px solid transparent; }
+.alert-link .alert-arrow { color:var(--muted); font-size:1.25rem; transition:transform .18s ease; }
+.alert-link:hover .alert-arrow { transform:translateX(2px); }
 
 .toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
 .searchbox { min-width: min(320px,100%); flex: 1; position: relative; }
