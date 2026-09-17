@@ -91,14 +91,15 @@ const DEFAULT_STATE = {
   inspirationFavorites: [],
   inspirationNotes: {},
   customInspirations: [],
+  adminInspirations: null,
 };
 
 const inspirationItems = [
-  { id:'decoracao-01', category:'decoracao', label:'Decoração', title:'Mesa em tons marfim', copy:'Flores brancas, velas finas e pequenos apontamentos dourados.', image:'assets/inspiration-decoracao.webp' },
-  { id:'vestidos-01', category:'vestidos', label:'Vestidos', title:'Renda com leveza', copy:'Uma silhueta intemporal com textura delicada e movimento natural.', image:'assets/inspiration-vestidos.webp' },
-  { id:'bouquets-01', category:'bouquets', label:'Bouquets', title:'Rosas de jardim', copy:'Branco, blush e verde suave para um bouquet romântico e elegante.', image:'assets/inspiration-bouquets.webp' },
-  { id:'convites-01', category:'convites', label:'Convites', title:'Papel, fita e textura', copy:'Estacionário minimalista em marfim e rosa seco, pronto a personalizar.', image:'assets/inspiration-convites.webp' },
-  { id:'espacos-01', category:'espacos', label:'Espaços', title:'Celebração num jardim português', copy:'Pedra clara, jardim formal e luz quente para uma cerimónia ao ar livre.', image:'assets/inspiration-espacos.webp' },
+  { id:'decoracao-01', category:'decoracao', label:'Decoração', title:'Mesa em tons marfim', copy:'Flores brancas, velas finas e pequenos apontamentos dourados.', image:'assets/inspiration-decoracao.webp', status:'published', featured:true },
+  { id:'vestidos-01', category:'vestidos', label:'Vestidos', title:'Renda com leveza', copy:'Uma silhueta intemporal com textura delicada e movimento natural.', image:'assets/inspiration-vestidos.webp', status:'published', featured:false },
+  { id:'bouquets-01', category:'bouquets', label:'Bouquets', title:'Rosas de jardim', copy:'Branco, blush e verde suave para um bouquet romântico e elegante.', image:'assets/inspiration-bouquets.webp', status:'published', featured:false },
+  { id:'convites-01', category:'convites', label:'Convites', title:'Papel, fita e textura', copy:'Estacionário minimalista em marfim e rosa seco, pronto a personalizar.', image:'assets/inspiration-convites.webp', status:'published', featured:false },
+  { id:'espacos-01', category:'espacos', label:'Espaços', title:'Celebração num jardim português', copy:'Pedra clara, jardim formal e luz quente para uma cerimónia ao ar livre.', image:'assets/inspiration-espacos.webp', status:'published', featured:false },
 ];
 
 const modules = [
@@ -150,6 +151,8 @@ function normaliseState(saved = {}) {
     if (!next.couple || typeof next.couple !== 'object' || Array.isArray(next.couple)) next.couple = structuredClone(DEFAULT_STATE.couple);
     if (!Array.isArray(next.inspirationFavorites)) next.inspirationFavorites = [];
     if (!next.inspirationNotes || typeof next.inspirationNotes !== 'object' || Array.isArray(next.inspirationNotes)) next.inspirationNotes = {};
+    if (!Array.isArray(next.adminInspirations)) next.adminInspirations = structuredClone(inspirationItems);
+    next.adminInspirations = next.adminInspirations.map(item => ({ status:'published', featured:false, source:'', ...item, label:item.label||item.category||'Outra' }));
     next.plan ||= 'comercial';
     next.moduleWork ||= {};
     modules.forEach(([number,,,seed]) => {
@@ -192,6 +195,9 @@ function guestCounts() {
   const refused = state.guests.filter(x=>x.rsvp==='recusado').length;
   return { confirmed, pending, refused, total: state.guests.length };
 }
+function publishedInspirations() {
+  return state.adminInspirations.filter(item=>item.status==='published').sort((a,b)=>Number(b.featured)-Number(a.featured));
+}
 function route() { return location.hash.replace('#','') || 'dashboard'; }
 function navigate(to) { location.hash = to; }
 function moduleProgress(number) {
@@ -213,14 +219,15 @@ function renderNav() {
   const current = route();
   const inModule = current.startsWith('module-');
   $('#desktop-nav').innerHTML = navItems.map(([id,label,ico]) => `<button class="nav-link ${current===id || (id==='casamento'&&inModule)?'active':''}" data-nav="${id}">${icon(ico)}<span>${label}</span></button>`).join('');
-  $('#mobile-nav').innerHTML = mobileItems.map(([id,label,ico]) => `<button class="nav-link ${current===id || (id==='casamento'&&inModule) || (id==='mais' && ['fornecedores','inspiracao','mesas','grande-dia','memorias','edicoes','mais'].includes(current))?'active':''}" data-nav="${id}">${icon(ico)}<span>${label}</span></button>`).join('');
+  $('#mobile-nav').innerHTML = mobileItems.map(([id,label,ico]) => `<button class="nav-link ${current===id || (id==='casamento'&&inModule) || (id==='mais' && ['fornecedores','inspiracao','mesas','grande-dia','memorias','edicoes','admin','mais'].includes(current))?'active':''}" data-nav="${id}">${icon(ico)}<span>${label}</span></button>`).join('');
 }
 
 const titles = {
   dashboard:['É tão bom ter-te aqui!','Olá, Ana!'], planeamento:['Passo a passo até ao grande dia','Planeamento'], orcamento:['Controla, planeia, realiza','Orçamento'],
   convidados:['As pessoas especiais do nosso dia','Convidados'], fornecedores:['Os profissionais do nosso casamento','Fornecedores'], casamento:['Tudo o que faz parte da nossa história','O Casamento'],
   mesas:['Onde se sentam as pessoas especiais','Mesas'], 'grande-dia':['Tudo a postos para viver este momento','O Grande Dia'], memorias:['Guardar o que realmente importa','Memórias'],
-  inspiracao:['Ideias guardadas para o nosso dia','Inspiração'], mais:['Acesso rápido','Mais'], edicoes:['Comercial e Premium','Edições']
+  inspiracao:['Ideias guardadas para o nosso dia','Inspiração'], mais:['Acesso rápido','Mais'], edicoes:['Comercial e Premium','Edições'],
+  admin:['Backoffice de demonstração','Administração']
 };
 
 function render() {
@@ -232,7 +239,7 @@ function render() {
   $('#page-kicker').textContent = kicker;
   $('#page-title').textContent = title;
   const renderers = { dashboard: renderDashboard, planeamento: renderPlanning, orcamento: renderBudget, convidados: renderGuests,
-    fornecedores: renderSuppliers, casamento: renderModules, inspiracao: renderInspiration, mesas: renderTables, 'grande-dia': renderDay, memorias: renderMemories, mais: renderMore, edicoes: renderEditions };
+    fornecedores: renderSuppliers, casamento: renderModules, inspiracao: renderInspiration, mesas: renderTables, 'grande-dia': renderDay, memorias: renderMemories, mais: renderMore, edicoes: renderEditions, admin: renderAdmin };
   $('#view').innerHTML = moduleNumber ? renderModuleDetail(moduleNumber) : (renderers[current] || renderDashboard)();
   bindViewEvents();
   $('#view').focus({preventScroll:true});
@@ -250,6 +257,7 @@ function renderDashboard() {
   const nextPayment = [...state.expenses].filter(x=>Number(x.total)>Number(x.paid)).sort((a,b)=>a.due.localeCompare(b.due))[0];
   const overdue = state.tasks.filter(x=>x.status==='atrasada').length;
   const noTable = state.guests.filter(x=>x.rsvp==='confirmado' && !x.tableId).length;
+  const weeklyInspirations=publishedInspirations().slice(0,5);
   return `
     <section class="dashboard-welcome"><h1>Olá, Ana!</h1><p>É tão bom ter-te aqui!</p></section>
     <section class="card hero-card">
@@ -283,7 +291,7 @@ function renderDashboard() {
         </div>
       </div>
     </section>
-    <section class="inspiration-section"><div class="inspiration-head"><h2>Inspiração da semana</h2><button class="link-button" data-inspiration-category="todos">Ver mais →</button></div><div class="inspiration-grid">${inspirationItems.map(item=>`<button class="inspiration-card" type="button" data-inspiration-category="${item.category}" style="background-image:url('${item.image}')"><span>${item.label}</span></button>`).join('')}</div></section>`;
+    <section class="inspiration-section"><div class="inspiration-head"><h2>Inspiração da semana</h2><button class="link-button" data-inspiration-category="todos">Ver mais →</button></div><div class="inspiration-grid">${weeklyInspirations.length?weeklyInspirations.map(item=>`<button class="inspiration-card" type="button" data-inspiration-category="${h(item.category)}" style="background-image:url('${h(item.image)}')"><span>${h(item.label)}</span></button>`).join(''):'<div class="card empty-state">Ainda não existem inspirações publicadas.</div>'}</div></section>`;
 }
 function statCard(label,value,foot,progress) { return `<article class="card stat-card"><span class="stat-label">${label}</span><strong class="stat-value">${value}</strong><span class="stat-foot">${foot}</span><div class="progress-track"><div class="progress-bar" style="width:${Math.min(100,progress||0)}%"></div></div></article>`; }
 function editButton(type,id,label) { return `<button class="edit-button" type="button" data-edit="${type}:${id}" aria-label="Editar ${h(label)}" title="Editar">${icon('edit')}</button>`; }
@@ -393,7 +401,7 @@ function renderMemories() {
 
 function renderInspiration() {
   const categories=[['todos','Tudo'],['decoracao','Decoração'],['vestidos','Vestidos'],['bouquets','Bouquets'],['convites','Convites'],['espacos','Espaços'],['outra','Outras'],['favoritos','Favoritos']];
-  const allItems=[...state.customInspirations,...inspirationItems];
+  const allItems=[...state.customInspirations,...publishedInspirations()];
   const items=allItems.filter(item=>inspirationFilter==='todos'||item.category===inspirationFilter||(inspirationFilter==='favoritos'&&state.inspirationFavorites.includes(item.id)));
   return `${actionButtons([button('Adicionar inspiração','add-inspiration','primary','plus')])}<section class="inspiration-intro card"><div><p class="eyebrow">CURADORIA COR PÚRPURA + IDEIAS DO CASAL</p><h2>Ideias para dar forma ao vosso dia</h2><p>Guardem referências, acrescentem as vossas fotografias e construam uma linguagem visual coerente para o casamento.</p></div><div class="inspiration-counter"><strong>${state.customInspirations.length}</strong><span>ideias vossas</span></div></section>
     <div class="inspiration-filters">${categories.map(([id,label])=>`<button class="pill ${inspirationFilter===id?'active':''}" type="button" data-inspiration-filter="${id}">${label}</button>`).join('')}</div>
@@ -495,8 +503,88 @@ async function saveCustomInspiration() {
   return true;
 }
 
+const adminInspirationModal=$('#admin-inspiration-modal');
+const adminInspirationForm=$('#admin-inspiration-form');
+let selectedAdminInspirationFile=null;
+function setAdminInspirationPreview(image) {
+  const preview=$('#admin-inspiration-preview');
+  preview.hidden=!image;
+  preview.style.backgroundImage=image?`url('${image}')`:'';
+}
+function openAdminInspirationModal(id='') {
+  const item=state.adminInspirations.find(entry=>entry.id===id);
+  adminInspirationForm.reset();
+  selectedAdminInspirationFile=null;
+  adminInspirationForm.dataset.itemId=item?.id||'';
+  $('#admin-inspiration-modal-title').textContent=item?'Editar inspiração oficial':'Nova inspiração oficial';
+  $('#admin-inspiration-modal-submit').textContent=item?'Guardar alterações':'Guardar conteúdo';
+  $('#admin-inspiration-file-status').textContent=item?'A imagem atual será mantida se não escolheres outra.':'JPEG, PNG ou WebP. A imagem será otimizada automaticamente.';
+  if (item) {
+    adminInspirationForm.elements.title.value=item.title||'';
+    adminInspirationForm.elements.category.value=item.category||'outra';
+    adminInspirationForm.elements.copy.value=item.copy||'';
+    adminInspirationForm.elements.source.value=item.source||'';
+    adminInspirationForm.elements.status.value=item.status||'draft';
+    adminInspirationForm.elements.featured.checked=Boolean(item.featured);
+  }
+  setAdminInspirationPreview(item?.image||'');
+  adminInspirationModal.showModal();
+}
+function closeAdminInspirationModal() {
+  if (adminInspirationModal.open) adminInspirationModal.close();
+  adminInspirationForm.reset();
+  selectedAdminInspirationFile=null;
+  adminInspirationForm.dataset.itemId='';
+  setAdminInspirationPreview('');
+}
+async function saveAdminInspiration() {
+  const data=new FormData(adminInspirationForm);
+  const existing=state.adminInspirations.find(item=>item.id===adminInspirationForm.dataset.itemId);
+  const image=selectedAdminInspirationFile?await resizeInspirationImage(selectedAdminInspirationFile):existing?.image;
+  if (!image) throw new Error('Adiciona uma imagem ao conteúdo.');
+  const category=String(data.get('category')||'outra');
+  const item={
+    id:existing?.id||`official-${Date.now()}`,
+    image,
+    title:String(data.get('title')||'').trim(),
+    category,
+    label:inspirationCategoryLabels[category]||'Outra',
+    copy:String(data.get('copy')||'').trim(),
+    source:safeExternalUrl(String(data.get('source')||'').trim()),
+    status:['draft','published','archived'].includes(data.get('status'))?data.get('status'):'draft',
+    featured:data.get('featured')==='on',
+    createdAt:existing?.createdAt||new Date().toISOString(),
+    updatedAt:new Date().toISOString(),
+  };
+  const previous=state.adminInspirations;
+  state.adminInspirations=existing?state.adminInspirations.map(entry=>entry.id===existing.id?item:entry):[item,...state.adminInspirations];
+  if (!saveState(existing?'Conteúdo atualizado.':'Conteúdo criado.')) {
+    state.adminInspirations=previous;
+    return false;
+  }
+  closeAdminInspirationModal();
+  return true;
+}
+
+function renderAdmin() {
+  const published=state.adminInspirations.filter(item=>item.status==='published').length;
+  const drafts=state.adminInspirations.filter(item=>item.status==='draft').length;
+  const archived=state.adminInspirations.filter(item=>item.status==='archived').length;
+  return `${actionButtons([button('Ver área dos noivos','admin-preview','ghost','heart'),button('Nova inspiração oficial','add-admin-inspiration','secondary','plus')])}
+    <section class="card admin-demo-banner"><div><p class="eyebrow">MODO DE DEMONSTRAÇÃO</p><h2>Backoffice de conteúdos</h2><p>Aqui a equipa da Cor Púrpura prepara e publica as inspirações que ficam disponíveis para todos os casais.</p></div><span class="admin-access-chip">Administrador</span></section>
+    <section class="grid grid-3 admin-stats"><article class="card stat-card"><span class="stat-label">Publicadas</span><strong class="stat-value">${published}</strong><span class="stat-foot">visíveis na aplicação</span></article><article class="card stat-card"><span class="stat-label">Rascunhos</span><strong class="stat-value">${drafts}</strong><span class="stat-foot">a aguardar publicação</span></article><article class="card stat-card"><span class="stat-label">Arquivadas</span><strong class="stat-value">${archived}</strong><span class="stat-foot">fora da aplicação</span></article></section>
+    <section class="admin-content-head"><div><p class="eyebrow">BIBLIOTECA EDITORIAL</p><h2>Inspirações oficiais</h2></div><p>As alterações publicadas aparecem imediatamente na área de inspiração dos noivos.</p></section>
+    <section class="admin-inspiration-grid">${state.adminInspirations.length?state.adminInspirations.map(adminInspirationCard).join(''):'<div class="card empty-state"><strong>A biblioteca está vazia.</strong>Cria a primeira inspiração oficial.</div>'}</section>
+    <section class="card admin-security-note"><strong>Segurança da versão final</strong><p>O acesso por conta Google, as permissões por função e o histórico de alterações serão ativados com a base de dados. Neste preview, os dados ficam apenas neste navegador.</p></section>`;
+}
+
+function adminInspirationCard(item) {
+  const statusLabel={ published:'Publicada', draft:'Rascunho', archived:'Arquivada' }[item.status]||'Rascunho';
+  return `<article class="card admin-inspiration-card"><div class="admin-inspiration-image" style="background-image:url('${h(item.image)}')">${item.featured?'<span class="admin-featured-chip">Destaque</span>':''}</div><div class="admin-inspiration-copy"><div class="admin-inspiration-meta"><span>${h(item.label)}</span><span class="admin-status ${h(item.status)}">${statusLabel}</span></div><h3>${h(item.title)}</h3><p>${h(item.copy)}</p><div class="admin-card-actions"><button class="button button-ghost button-small" type="button" data-edit-admin-inspiration="${h(item.id)}">Editar</button><button class="text-action" type="button" data-admin-feature="${h(item.id)}">${item.featured?'Retirar destaque':'Destacar'}</button><button class="button ${item.status==='published'?'button-ghost':'button-primary'} button-small" type="button" data-admin-publish="${h(item.id)}">${item.status==='published'?'Despublicar':'Publicar'}</button><button class="text-action danger-text" type="button" data-delete-admin-inspiration="${h(item.id)}">Eliminar</button></div></div></article>`;
+}
+
 function renderMore() {
-  return `<section class="module-grid">${navItems.filter(([id])=>['fornecedores','inspiracao','mesas','grande-dia','memorias','edicoes'].includes(id)).map(([id,label,ico])=>`<article class="card module-card" data-nav="${id}">${icon(ico)}<h3>${label}</h3><p>${id==='edicoes'?`Edição atual: ${state.plan==='premium'?'Premium':'Comercial'}.`:'Abrir esta área da agenda.'}</p></article>`).join('')}<article class="card module-card" data-action="account">${icon('guests')}<h3>Conta e sincronização</h3><p>Entrar, recuperar o acesso e editar os dados do casamento.</p></article><article class="card module-card" data-action="export-data">${icon('download')}<h3>Exportar dados</h3><p>Guardar uma cópia de segurança em JSON.</p></article><article class="card module-card" data-action="privacy">${icon('day')}<h3>Privacidade e dados</h3><p>Consultar, descarregar ou eliminar os teus dados.</p></article><article class="card module-card" data-action="reset-data">${icon('more')}<h3>Repor demonstração</h3><p>Voltar aos dados iniciais deste protótipo.</p></article></section>`;
+  return `<section class="module-grid">${navItems.filter(([id])=>['fornecedores','inspiracao','mesas','grande-dia','memorias','edicoes'].includes(id)).map(([id,label,ico])=>`<article class="card module-card" data-nav="${id}">${icon(ico)}<h3>${label}</h3><p>${id==='edicoes'?`Edição atual: ${state.plan==='premium'?'Premium':'Comercial'}.`:'Abrir esta área da agenda.'}</p></article>`).join('')}<article class="card module-card admin-entry-card" data-nav="admin">${icon('sparkles')}<h3>Administração — demo</h3><p>Gerir e publicar as inspirações oficiais.</p></article><article class="card module-card" data-action="account">${icon('guests')}<h3>Conta e sincronização</h3><p>Entrar, recuperar o acesso e editar os dados do casamento.</p></article><article class="card module-card" data-action="export-data">${icon('download')}<h3>Exportar dados</h3><p>Guardar uma cópia de segurança em JSON.</p></article><article class="card module-card" data-action="privacy">${icon('day')}<h3>Privacidade e dados</h3><p>Consultar, descarregar ou eliminar os teus dados.</p></article><article class="card module-card" data-action="reset-data">${icon('more')}<h3>Repor demonstração</h3><p>Voltar aos dados iniciais deste protótipo.</p></article></section>`;
 }
 
 function renderEditions() {
@@ -619,6 +707,27 @@ function bindViewEvents(){
     delete state.inspirationNotes[id];
     saveState('Inspiração eliminada.');
   }));
+  $$('[data-edit-admin-inspiration]').forEach(el=>el.addEventListener('click',()=>openAdminInspirationModal(el.dataset.editAdminInspiration)));
+  $$('[data-admin-feature]').forEach(el=>el.addEventListener('click',()=>{
+    const item=state.adminInspirations.find(entry=>entry.id===el.dataset.adminFeature);
+    if (!item) return;
+    item.featured=!item.featured;
+    saveState(item.featured?'Conteúdo colocado em destaque.':'Destaque retirado.');
+  }));
+  $$('[data-admin-publish]').forEach(el=>el.addEventListener('click',()=>{
+    const item=state.adminInspirations.find(entry=>entry.id===el.dataset.adminPublish);
+    if (!item) return;
+    item.status=item.status==='published'?'draft':'published';
+    saveState(item.status==='published'?'Conteúdo publicado na aplicação.':'Conteúdo retirado da aplicação.');
+  }));
+  $$('[data-delete-admin-inspiration]').forEach(el=>el.addEventListener('click',()=>{
+    const item=state.adminInspirations.find(entry=>entry.id===el.dataset.deleteAdminInspiration);
+    if (!item||!confirm(`Eliminar definitivamente “${item.title}”?`)) return;
+    state.adminInspirations=state.adminInspirations.filter(entry=>entry.id!==item.id);
+    state.inspirationFavorites=state.inspirationFavorites.filter(entry=>entry!==item.id);
+    delete state.inspirationNotes[item.id];
+    saveState('Conteúdo eliminado.');
+  }));
   $$('[data-edit]').forEach(el=>el.addEventListener('click',event=>{event.stopPropagation();const [type,id]=el.dataset.edit.split(':');openEdit(type,Number(id));}));
   $$('[data-task-toggle]').forEach(el=>el.addEventListener('change',()=>{const t=state.tasks.find(x=>x.id===Number(el.dataset.taskToggle));t.status=el.checked?'concluida':'pendente';saveState();}));
   $$('[data-delete]').forEach(el=>el.addEventListener('click',()=>{const [type,id]=el.dataset.delete.split(':');deleteItem(type,Number(id));}));
@@ -639,6 +748,8 @@ function bindViewEvents(){
 function handleAction(action,source){
   if(schemas[action]) return openModal(action);
   if(action==='add-inspiration') return openInspirationModal();
+  if(action==='add-admin-inspiration') return openAdminInspirationModal();
+  if(action==='admin-preview') return navigate('inspiracao');
   if(action==='set-plan-comercial'||action==='set-plan-premium'){
     state.plan=action.endsWith('premium')?'premium':'comercial';
     return saveState(`Edição ${state.plan==='premium'?'Premium':'Comercial'} ativa para teste.`);
@@ -654,7 +765,7 @@ function handleAction(action,source){
     state.moduleWork[number].notes=$(`[data-module-notes="${number}"]`).value;
     return saveState('Notas guardadas.');
   }
-  if(action==='reset-data'){if(confirm('Repor todos os dados de demonstração?')){state=structuredClone(DEFAULT_STATE);localStorage.removeItem('agenda-noiva-state');saveState('Demonstração reposta.')}}
+  if(action==='reset-data'){if(confirm('Repor todos os dados de demonstração?')){state=normaliseState(DEFAULT_STATE);localStorage.removeItem('agenda-noiva-state');saveState('Demonstração reposta.')}}
 }
 
 $('#modal-form').addEventListener('submit',e=>{e.preventDefault();saveModal(e.currentTarget)});
@@ -684,6 +795,28 @@ inspirationForm.addEventListener('submit',async event=>{
   try { await saveCustomInspiration(); }
   catch (error) { toast(error.message||'Não foi possível guardar a inspiração.'); }
   finally { submit.disabled=false; submit.textContent=inspirationForm.dataset.itemId?'Guardar alterações':'Guardar inspiração'; }
+});
+$('#admin-inspiration-modal-close').innerHTML=icon('close');
+$('#admin-inspiration-modal-close').addEventListener('click',closeAdminInspirationModal);
+$('#admin-inspiration-modal-cancel').addEventListener('click',closeAdminInspirationModal);
+adminInspirationModal.addEventListener('click',event=>{if(event.target===adminInspirationModal)closeAdminInspirationModal()});
+adminInspirationModal.addEventListener('close',()=>{adminInspirationForm.reset();selectedAdminInspirationFile=null;adminInspirationForm.dataset.itemId='';setAdminInspirationPreview('')});
+$('#admin-inspiration-image').addEventListener('change',async event=>{
+  const file=event.target.files[0];
+  if (!file) return;
+  selectedAdminInspirationFile=file;
+  $('#admin-inspiration-file-status').textContent=`Imagem selecionada: ${file.name}`;
+  try { setAdminInspirationPreview(await readFileAsDataUrl(file)); }
+  catch (error) { selectedAdminInspirationFile=null;toast(error.message);event.target.value='';setAdminInspirationPreview(''); }
+});
+adminInspirationForm.addEventListener('submit',async event=>{
+  event.preventDefault();
+  const submit=$('#admin-inspiration-modal-submit');
+  submit.disabled=true;
+  submit.textContent='A guardar…';
+  try { await saveAdminInspiration(); }
+  catch (error) { toast(error.message||'Não foi possível guardar o conteúdo.'); }
+  finally { submit.disabled=false;submit.textContent=adminInspirationForm.dataset.itemId?'Guardar alterações':'Guardar conteúdo'; }
 });
 $('#global-search').innerHTML=icon('search');
 $('.notification-button').insertAdjacentHTML('afterbegin',icon('bell'));
