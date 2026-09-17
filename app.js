@@ -142,6 +142,7 @@ let state = loadState();
 let guestFilter = 'todos';
 let guestSearch = '';
 let inspirationFilter = 'todos';
+let adminAccess = { mode:'demo', authenticated:false, allowed:true, role:'demo' };
 
 function normaliseState(saved = {}) {
     const next = { ...structuredClone(DEFAULT_STATE), ...(saved && typeof saved === 'object' ? saved : {}) };
@@ -556,6 +557,13 @@ async function saveAdminInspiration() {
     createdAt:existing?.createdAt||new Date().toISOString(),
     updatedAt:new Date().toISOString(),
   };
+  if (adminAccess.mode==='online') {
+    if (!adminAccess.allowed) throw new Error('Esta conta não tem permissões para publicar conteúdos.');
+    await window.AgendaPlatform.saveOfficialInspiration(item);
+    closeAdminInspirationModal();
+    toast(existing?'Conteúdo atualizado online.':'Conteúdo criado online.');
+    return true;
+  }
   const previous=state.adminInspirations;
   state.adminInspirations=existing?state.adminInspirations.map(entry=>entry.id===existing.id?item:entry):[item,...state.adminInspirations];
   if (!saveState(existing?'Conteúdo atualizado.':'Conteúdo criado.')) {
@@ -566,21 +574,41 @@ async function saveAdminInspiration() {
   return true;
 }
 
+async function persistAdminChange(item,message) {
+  if (adminAccess.mode==='online') {
+    if (!adminAccess.allowed) return toast('Esta conta não tem permissões de administração.');
+    try {
+      await window.AgendaPlatform.saveOfficialInspiration(item);
+      toast(message);
+    } catch (error) { toast(error.message||'Não foi possível atualizar o conteúdo.'); }
+    return;
+  }
+  state.adminInspirations=state.adminInspirations.map(entry=>entry.id===item.id?item:entry);
+  saveState(message);
+}
+
 function renderAdmin() {
+  if (adminAccess.mode==='online'&&!adminAccess.authenticated) {
+    return `<section class="card admin-locked"><span class="account-mark">♡</span><p class="eyebrow">ÁREA PROTEGIDA</p><h2>Inicia sessão para aceder ao backoffice</h2><p>O painel de administração está reservado às contas autorizadas pela Cor Púrpura.</p><button class="button button-secondary" type="button" data-action="account">Entrar com Google ou e-mail</button></section>`;
+  }
+  if (adminAccess.mode==='online'&&!adminAccess.allowed) {
+    return `<section class="card admin-locked"><span class="account-mark">♡</span><p class="eyebrow">ACESSO RESTRITO</p><h2>Esta conta não tem permissões de administração</h2><p>Podes continuar a utilizar a Agenda da Noiva, mas não podes editar conteúdos oficiais.</p><button class="button button-ghost" type="button" data-nav="dashboard">Voltar à aplicação</button></section>`;
+  }
   const published=state.adminInspirations.filter(item=>item.status==='published').length;
   const drafts=state.adminInspirations.filter(item=>item.status==='draft').length;
   const archived=state.adminInspirations.filter(item=>item.status==='archived').length;
   return `${actionButtons([button('Ver área dos noivos','admin-preview','ghost','heart'),button('Nova inspiração oficial','add-admin-inspiration','secondary','plus')])}
-    <section class="card admin-demo-banner"><div><p class="eyebrow">MODO DE DEMONSTRAÇÃO</p><h2>Backoffice de conteúdos</h2><p>Aqui a equipa da Cor Púrpura prepara e publica as inspirações que ficam disponíveis para todos os casais.</p></div><span class="admin-access-chip">Administrador</span></section>
+    <section class="card admin-demo-banner"><div><p class="eyebrow">${adminAccess.mode==='online'?'LIGAÇÃO SEGURA ATIVA':'MODO DE DEMONSTRAÇÃO'}</p><h2>Backoffice de conteúdos</h2><p>Aqui a equipa da Cor Púrpura prepara e publica as inspirações que ficam disponíveis para todos os casais.</p></div><span class="admin-access-chip">${adminAccess.role==='editor'?'Editor':'Administrador'}</span></section>
     <section class="grid grid-3 admin-stats"><article class="card stat-card"><span class="stat-label">Publicadas</span><strong class="stat-value">${published}</strong><span class="stat-foot">visíveis na aplicação</span></article><article class="card stat-card"><span class="stat-label">Rascunhos</span><strong class="stat-value">${drafts}</strong><span class="stat-foot">a aguardar publicação</span></article><article class="card stat-card"><span class="stat-label">Arquivadas</span><strong class="stat-value">${archived}</strong><span class="stat-foot">fora da aplicação</span></article></section>
     <section class="admin-content-head"><div><p class="eyebrow">BIBLIOTECA EDITORIAL</p><h2>Inspirações oficiais</h2></div><p>As alterações publicadas aparecem imediatamente na área de inspiração dos noivos.</p></section>
     <section class="admin-inspiration-grid">${state.adminInspirations.length?state.adminInspirations.map(adminInspirationCard).join(''):'<div class="card empty-state"><strong>A biblioteca está vazia.</strong>Cria a primeira inspiração oficial.</div>'}</section>
-    <section class="card admin-security-note"><strong>Segurança da versão final</strong><p>O acesso por conta Google, as permissões por função e o histórico de alterações serão ativados com a base de dados. Neste preview, os dados ficam apenas neste navegador.</p></section>`;
+    <section class="card admin-security-note"><strong>${adminAccess.mode==='online'?'Conteúdos guardados online':'Segurança da versão final'}</strong><p>${adminAccess.mode==='online'?'As publicações e imagens estão ligadas à base de dados e protegidas por permissões de editor e administrador.':'O acesso por conta Google, as permissões por função e o histórico de alterações serão ativados com a base de dados. Neste preview, os dados ficam apenas neste navegador.'}</p></section>`;
 }
 
 function adminInspirationCard(item) {
   const statusLabel={ published:'Publicada', draft:'Rascunho', archived:'Arquivada' }[item.status]||'Rascunho';
-  return `<article class="card admin-inspiration-card"><div class="admin-inspiration-image" style="background-image:url('${h(item.image)}')">${item.featured?'<span class="admin-featured-chip">Destaque</span>':''}</div><div class="admin-inspiration-copy"><div class="admin-inspiration-meta"><span>${h(item.label)}</span><span class="admin-status ${h(item.status)}">${statusLabel}</span></div><h3>${h(item.title)}</h3><p>${h(item.copy)}</p><div class="admin-card-actions"><button class="button button-ghost button-small" type="button" data-edit-admin-inspiration="${h(item.id)}">Editar</button><button class="text-action" type="button" data-admin-feature="${h(item.id)}">${item.featured?'Retirar destaque':'Destacar'}</button><button class="button ${item.status==='published'?'button-ghost':'button-primary'} button-small" type="button" data-admin-publish="${h(item.id)}">${item.status==='published'?'Despublicar':'Publicar'}</button><button class="text-action danger-text" type="button" data-delete-admin-inspiration="${h(item.id)}">Eliminar</button></div></div></article>`;
+  const deleteAction=adminAccess.role==='admin'?`<button class="text-action danger-text" type="button" data-delete-admin-inspiration="${h(item.id)}">Eliminar</button>`:'';
+  return `<article class="card admin-inspiration-card"><div class="admin-inspiration-image" style="background-image:url('${h(item.image)}')">${item.featured?'<span class="admin-featured-chip">Destaque</span>':''}</div><div class="admin-inspiration-copy"><div class="admin-inspiration-meta"><span>${h(item.label)}</span><span class="admin-status ${h(item.status)}">${statusLabel}</span></div><h3>${h(item.title)}</h3><p>${h(item.copy)}</p><div class="admin-card-actions"><button class="button button-ghost button-small" type="button" data-edit-admin-inspiration="${h(item.id)}">Editar</button><button class="text-action" type="button" data-admin-feature="${h(item.id)}">${item.featured?'Retirar destaque':'Destacar'}</button><button class="button ${item.status==='published'?'button-ghost':'button-primary'} button-small" type="button" data-admin-publish="${h(item.id)}">${item.status==='published'?'Despublicar':'Publicar'}</button>${deleteAction}</div></div></article>`;
 }
 
 function renderMore() {
@@ -708,21 +736,26 @@ function bindViewEvents(){
     saveState('Inspiração eliminada.');
   }));
   $$('[data-edit-admin-inspiration]').forEach(el=>el.addEventListener('click',()=>openAdminInspirationModal(el.dataset.editAdminInspiration)));
-  $$('[data-admin-feature]').forEach(el=>el.addEventListener('click',()=>{
+  $$('[data-admin-feature]').forEach(el=>el.addEventListener('click',async()=>{
     const item=state.adminInspirations.find(entry=>entry.id===el.dataset.adminFeature);
     if (!item) return;
-    item.featured=!item.featured;
-    saveState(item.featured?'Conteúdo colocado em destaque.':'Destaque retirado.');
+    const next={...item,featured:!item.featured};
+    await persistAdminChange(next,next.featured?'Conteúdo colocado em destaque.':'Destaque retirado.');
   }));
-  $$('[data-admin-publish]').forEach(el=>el.addEventListener('click',()=>{
+  $$('[data-admin-publish]').forEach(el=>el.addEventListener('click',async()=>{
     const item=state.adminInspirations.find(entry=>entry.id===el.dataset.adminPublish);
     if (!item) return;
-    item.status=item.status==='published'?'draft':'published';
-    saveState(item.status==='published'?'Conteúdo publicado na aplicação.':'Conteúdo retirado da aplicação.');
+    const next={...item,status:item.status==='published'?'draft':'published'};
+    await persistAdminChange(next,next.status==='published'?'Conteúdo publicado na aplicação.':'Conteúdo retirado da aplicação.');
   }));
-  $$('[data-delete-admin-inspiration]').forEach(el=>el.addEventListener('click',()=>{
+  $$('[data-delete-admin-inspiration]').forEach(el=>el.addEventListener('click',async()=>{
     const item=state.adminInspirations.find(entry=>entry.id===el.dataset.deleteAdminInspiration);
     if (!item||!confirm(`Eliminar definitivamente “${item.title}”?`)) return;
+    if (adminAccess.mode==='online') {
+      try { await window.AgendaPlatform.deleteOfficialInspiration(item);toast('Conteúdo eliminado online.'); }
+      catch (error) { toast(error.message||'Não foi possível eliminar o conteúdo.'); }
+      return;
+    }
     state.adminInspirations=state.adminInspirations.filter(entry=>entry.id!==item.id);
     state.inspirationFavorites=state.inspirationFavorites.filter(entry=>entry!==item.id);
     delete state.inspirationNotes[item.id];
@@ -856,6 +889,16 @@ window.AgendaApp = {
     localStorage.removeItem('agenda-noiva-state');
     state = normaliseState();
     render();
+  },
+  setOfficialInspirations(items) {
+    if (!Array.isArray(items)) return;
+    state.adminInspirations=items;
+    try { localStorage.setItem('agenda-noiva-state',JSON.stringify(state)); } catch {}
+    render();
+  },
+  setAdminAccess(access) {
+    adminAccess={...adminAccess,...access};
+    if (route()==='admin') render();
   },
   toast,
   render
