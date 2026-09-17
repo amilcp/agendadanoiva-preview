@@ -254,11 +254,11 @@ function renderDashboard() {
         </div>
         <div class="card card-pad">
           <div class="card-header"><div><h3>O casamento precisa da tua atenção</h3></div></div>
-          <ul class="alert-list">
-            <li class="alert-row"><span class="alert-icon">!</span><span>${guests.pending} respostas por confirmar</span></li>
-            <li class="alert-row"><span class="alert-icon">!</span><span>${overdue} tarefas atrasadas</span></li>
-            <li class="alert-row"><span class="alert-icon">!</span><span>${noTable} convidados sem mesa</span></li>
-          </ul>
+          <div class="alert-list">
+            <button class="alert-row alert-link" type="button" data-dashboard-jump="guests-pending"><span class="alert-icon">!</span><span>${guests.pending} respostas por confirmar</span><span class="alert-arrow" aria-hidden="true">›</span></button>
+            <button class="alert-row alert-link" type="button" data-dashboard-jump="tasks-overdue"><span class="alert-icon">!</span><span>${overdue} tarefas atrasadas</span><span class="alert-arrow" aria-hidden="true">›</span></button>
+            <button class="alert-row alert-link" type="button" data-dashboard-jump="guests-without-table"><span class="alert-icon">!</span><span>${noTable} convidados sem mesa</span><span class="alert-arrow" aria-hidden="true">›</span></button>
+          </div>
         </div>
       </div>
     </section>`;
@@ -465,6 +465,12 @@ function bindViewEvents(){
   $$('[data-nav]').forEach(el=>el.addEventListener('click',()=>navigate(el.dataset.nav)));
   $$('[data-nav][tabindex]').forEach(el=>el.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();navigate(el.dataset.nav)}}));
   $$('[data-action]').forEach(el=>el.addEventListener('click',()=>handleAction(el.dataset.action,el)));
+  $$('[data-dashboard-jump]').forEach(el=>el.addEventListener('click',()=>{
+    const destination=el.dataset.dashboardJump;
+    if(destination==='guests-pending'){guestFilter='pendente';guestSearch='';return navigate('convidados');}
+    if(destination==='tasks-overdue') return navigate('planeamento');
+    if(destination==='guests-without-table') return navigate('mesas');
+  }));
   $$('[data-edit]').forEach(el=>el.addEventListener('click',event=>{event.stopPropagation();const [type,id]=el.dataset.edit.split(':');openEdit(type,Number(id));}));
   $$('[data-task-toggle]').forEach(el=>el.addEventListener('change',()=>{const t=state.tasks.find(x=>x.id===Number(el.dataset.taskToggle));t.status=el.checked?'concluida':'pendente';saveState();}));
   $$('[data-delete]').forEach(el=>el.addEventListener('click',()=>{const [type,id]=el.dataset.delete.split(':');deleteItem(type,Number(id));}));
