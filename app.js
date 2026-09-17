@@ -90,6 +90,7 @@ const DEFAULT_STATE = {
   memory: '',
   inspirationFavorites: [],
   inspirationNotes: {},
+  customInspirations: [],
 };
 
 const inspirationItems = [
@@ -143,7 +144,7 @@ let inspirationFilter = 'todos';
 
 function normaliseState(saved = {}) {
     const next = { ...structuredClone(DEFAULT_STATE), ...(saved && typeof saved === 'object' ? saved : {}) };
-    ['tasks','expenses','guests','suppliers','tables','timeline'].forEach(key => {
+    ['tasks','expenses','guests','suppliers','tables','timeline','customInspirations'].forEach(key => {
       if (!Array.isArray(next[key])) next[key] = structuredClone(DEFAULT_STATE[key]);
     });
     if (!next.couple || typeof next.couple !== 'object' || Array.isArray(next.couple)) next.couple = structuredClone(DEFAULT_STATE.couple);
@@ -167,10 +168,16 @@ function loadState() {
   }
 }
 function saveState(message) {
-  localStorage.setItem('agenda-noiva-state', JSON.stringify(state));
+  try {
+    localStorage.setItem('agenda-noiva-state', JSON.stringify(state));
+  } catch {
+    toast('Não foi possível guardar. Experimenta uma imagem mais pequena ou elimina uma inspiração antiga.');
+    return false;
+  }
   window.AgendaPlatform?.scheduleSync?.(state);
   if (message) toast(message);
   render();
+  return true;
 }
 function nextId(items) { return Math.max(0, ...items.map(x => Number(x.id) || 0)) + 1; }
 function daysToWedding() { return Math.max(0, Math.ceil((new Date(state.couple.date) - new Date()) / 86400000)); }
@@ -385,16 +392,105 @@ function renderMemories() {
 }
 
 function renderInspiration() {
-  const categories=[['todos','Tudo'],['decoracao','Decoração'],['vestidos','Vestidos'],['bouquets','Bouquets'],['convites','Convites'],['espacos','Espaços'],['favoritos','Favoritos']];
-  const items=inspirationItems.filter(item=>inspirationFilter==='todos'||item.category===inspirationFilter||(inspirationFilter==='favoritos'&&state.inspirationFavorites.includes(item.id)));
-  return `<section class="inspiration-intro card"><div><p class="eyebrow">CURADORIA COR PÚRPURA</p><h2>Ideias para dar forma ao vosso dia</h2><p>Guardem referências, acrescentem notas e construam uma linguagem visual coerente para o casamento.</p></div><div class="inspiration-counter"><strong>${state.inspirationFavorites.length}</strong><span>favoritos</span></div></section>
+  const categories=[['todos','Tudo'],['decoracao','Decoração'],['vestidos','Vestidos'],['bouquets','Bouquets'],['convites','Convites'],['espacos','Espaços'],['outra','Outras'],['favoritos','Favoritos']];
+  const allItems=[...state.customInspirations,...inspirationItems];
+  const items=allItems.filter(item=>inspirationFilter==='todos'||item.category===inspirationFilter||(inspirationFilter==='favoritos'&&state.inspirationFavorites.includes(item.id)));
+  return `${actionButtons([button('Adicionar inspiração','add-inspiration','primary','plus')])}<section class="inspiration-intro card"><div><p class="eyebrow">CURADORIA COR PÚRPURA + IDEIAS DO CASAL</p><h2>Ideias para dar forma ao vosso dia</h2><p>Guardem referências, acrescentem as vossas fotografias e construam uma linguagem visual coerente para o casamento.</p></div><div class="inspiration-counter"><strong>${state.customInspirations.length}</strong><span>ideias vossas</span></div></section>
     <div class="inspiration-filters">${categories.map(([id,label])=>`<button class="pill ${inspirationFilter===id?'active':''}" type="button" data-inspiration-filter="${id}">${label}</button>`).join('')}</div>
-    <section class="inspiration-library">${items.length?items.map(inspirationCard).join(''):'<div class="card empty-state"><strong>Ainda não existem favoritos.</strong>Guarda as ideias que queres voltar a consultar.</div>'}</section>`;
+    <section class="inspiration-library">${items.length?items.map(inspirationCard).join(''):`<div class="card empty-state"><strong>${inspirationFilter==='favoritos'?'Ainda não existem favoritos.':'Ainda não existem inspirações nesta categoria.'}</strong>${inspirationFilter==='favoritos'?'Guarda as ideias que queres voltar a consultar.':'Adiciona uma fotografia ou escolhe outra categoria.'}</div>`}</section>`;
 }
 
 function inspirationCard(item) {
   const favorite=state.inspirationFavorites.includes(item.id);
-  return `<article class="card inspiration-library-card"><div class="inspiration-image" style="background-image:url('${item.image}')"><span>${item.label}</span><button class="favorite-button ${favorite?'active':''}" type="button" data-inspiration-favorite="${item.id}" aria-label="${favorite?'Remover dos':'Guardar nos'} favoritos">${favorite?'♥':'♡'}</button></div><div class="inspiration-body"><h3>${item.title}</h3><p>${item.copy}</p><label for="note-${item.id}">Nota do casal</label><textarea class="textarea inspiration-note" id="note-${item.id}" data-inspiration-note-field="${item.id}" placeholder="O que gostaram nesta ideia?">${h(state.inspirationNotes[item.id]||'')}</textarea><button class="button button-primary button-small" type="button" data-save-inspiration-note="${item.id}">Guardar nota</button></div></article>`;
+  const source=safeExternalUrl(item.source);
+  const customActions=item.custom?`<div class="inspiration-custom-actions"><button class="text-action" type="button" data-edit-inspiration="${h(item.id)}">Editar</button><button class="text-action danger-text" type="button" data-delete-inspiration="${h(item.id)}">Eliminar</button></div>`:'';
+  const visibility=item.custom?`<span class="inspiration-owner">Do casal · ${item.visibility==='couple'?'Partilhada':'Privada'}</span>`:'';
+  return `<article class="card inspiration-library-card"><div class="inspiration-image" style="background-image:url('${h(item.image)}')"><span>${h(item.label)}</span><button class="favorite-button ${favorite?'active':''}" type="button" data-inspiration-favorite="${h(item.id)}" aria-label="${favorite?'Remover dos':'Guardar nos'} favoritos">${favorite?'♥':'♡'}</button></div><div class="inspiration-body">${visibility}<h3>${h(item.title)}</h3><p>${h(item.copy||'Ideia guardada pelo casal.')}</p>${source?`<a class="inspiration-source" href="${h(source)}" target="_blank" rel="noopener noreferrer">Ver fonte ↗</a>`:''}<label for="note-${h(item.id)}">Nota do casal</label><textarea class="textarea inspiration-note" id="note-${h(item.id)}" data-inspiration-note-field="${h(item.id)}" placeholder="O que gostaram nesta ideia?">${h(state.inspirationNotes[item.id]||'')}</textarea><div class="inspiration-card-actions"><button class="button button-primary button-small" type="button" data-save-inspiration-note="${h(item.id)}">Guardar nota</button>${customActions}</div></div></article>`;
+}
+
+const inspirationCategoryLabels={ decoracao:'Decoração', vestidos:'Vestidos', bouquets:'Bouquets', convites:'Convites', espacos:'Espaços', outra:'Outra' };
+function safeExternalUrl(value) {
+  if (!value) return '';
+  try {
+    const url=new URL(value);
+    return ['http:','https:'].includes(url.protocol)?url.href:'';
+  } catch { return ''; }
+}
+
+const inspirationModal=$('#inspiration-modal');
+const inspirationForm=$('#inspiration-form');
+function openInspirationModal(id='') {
+  const item=state.customInspirations.find(entry=>entry.id===id);
+  inspirationForm.reset();
+  inspirationForm.dataset.itemId=item?.id||'';
+  $('#inspiration-modal-title').textContent=item?'Editar inspiração':'Adicionar inspiração';
+  $('#inspiration-modal-submit').textContent=item?'Guardar alterações':'Guardar inspiração';
+  const imageInput=$('#inspiration-image-file');
+  imageInput.required=!item;
+  if (item) {
+    inspirationForm.elements.title.value=item.title||'';
+    inspirationForm.elements.category.value=item.category||'outra';
+    inspirationForm.elements.source.value=item.source||'';
+    inspirationForm.elements.copy.value=item.copy||'';
+    inspirationForm.elements.visibility.value=item.visibility||'private';
+  }
+  setInspirationPreview(item?.image||'');
+  inspirationModal.showModal();
+}
+function closeInspirationModal() {
+  if (inspirationModal.open) inspirationModal.close();
+  inspirationForm.reset();
+  inspirationForm.dataset.itemId='';
+  setInspirationPreview('');
+}
+function setInspirationPreview(image) {
+  const preview=$('#inspiration-upload-preview');
+  preview.hidden=!image;
+  preview.style.backgroundImage=image?`url('${image}')`:'';
+}
+function readFileAsDataUrl(file) {
+  return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error('Não foi possível ler a fotografia.'));reader.readAsDataURL(file)});
+}
+async function resizeInspirationImage(file) {
+  if (!file?.type.startsWith('image/')) throw new Error('Escolhe uma fotografia em JPEG, PNG ou WebP.');
+  if (file.size>12*1024*1024) throw new Error('A fotografia é demasiado grande. O limite é 12 MB.');
+  const source=await readFileAsDataUrl(file);
+  const image=await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error('A fotografia não pôde ser processada.'));img.src=source});
+  const scale=Math.min(1,1200/image.naturalWidth,900/image.naturalHeight);
+  const canvas=document.createElement('canvas');
+  canvas.width=Math.max(1,Math.round(image.naturalWidth*scale));
+  canvas.height=Math.max(1,Math.round(image.naturalHeight*scale));
+  canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);
+  return canvas.toDataURL('image/jpeg',.78);
+}
+async function saveCustomInspiration() {
+  const formData=new FormData(inspirationForm);
+  const existingId=inspirationForm.dataset.itemId;
+  const existing=state.customInspirations.find(item=>item.id===existingId);
+  const file=$('#inspiration-image-file').files[0];
+  const image=file?await resizeInspirationImage(file):existing?.image;
+  if (!image) throw new Error('Adiciona uma fotografia à inspiração.');
+  const category=String(formData.get('category')||'outra');
+  const item={
+    id:existing?.id||`custom-${Date.now()}`,
+    custom:true,
+    image,
+    title:String(formData.get('title')||'').trim(),
+    category,
+    label:inspirationCategoryLabels[category]||'Outra',
+    source:safeExternalUrl(String(formData.get('source')||'').trim()),
+    copy:String(formData.get('copy')||'').trim(),
+    visibility:formData.get('visibility')==='couple'?'couple':'private',
+    createdAt:existing?.createdAt||new Date().toISOString(),
+  };
+  const previous=state.customInspirations;
+  state.customInspirations=existing?state.customInspirations.map(entry=>entry.id===existing.id?item:entry):[item,...state.customInspirations];
+  if (!saveState(existing?'Inspiração atualizada.':'Inspiração adicionada.')) {
+    state.customInspirations=previous;
+    return false;
+  }
+  closeInspirationModal();
+  return true;
 }
 
 function renderMore() {
@@ -511,6 +607,16 @@ function bindViewEvents(){
     state.inspirationNotes[id]=$(`[data-inspiration-note-field="${id}"]`)?.value||'';
     saveState('Nota da inspiração guardada.');
   }));
+  $$('[data-edit-inspiration]').forEach(el=>el.addEventListener('click',()=>openInspirationModal(el.dataset.editInspiration)));
+  $$('[data-delete-inspiration]').forEach(el=>el.addEventListener('click',()=>{
+    const id=el.dataset.deleteInspiration;
+    const item=state.customInspirations.find(entry=>entry.id===id);
+    if (!item||!confirm(`Eliminar a inspiração “${item.title}”?`)) return;
+    state.customInspirations=state.customInspirations.filter(entry=>entry.id!==id);
+    state.inspirationFavorites=state.inspirationFavorites.filter(entry=>entry!==id);
+    delete state.inspirationNotes[id];
+    saveState('Inspiração eliminada.');
+  }));
   $$('[data-edit]').forEach(el=>el.addEventListener('click',event=>{event.stopPropagation();const [type,id]=el.dataset.edit.split(':');openEdit(type,Number(id));}));
   $$('[data-task-toggle]').forEach(el=>el.addEventListener('change',()=>{const t=state.tasks.find(x=>x.id===Number(el.dataset.taskToggle));t.status=el.checked?'concluida':'pendente';saveState();}));
   $$('[data-delete]').forEach(el=>el.addEventListener('click',()=>{const [type,id]=el.dataset.delete.split(':');deleteItem(type,Number(id));}));
@@ -530,6 +636,7 @@ function bindViewEvents(){
 }
 function handleAction(action,source){
   if(schemas[action]) return openModal(action);
+  if(action==='add-inspiration') return openInspirationModal();
   if(action==='set-plan-comercial'||action==='set-plan-premium'){
     state.plan=action.endsWith('premium')?'premium':'comercial';
     return saveState(`Edição ${state.plan==='premium'?'Premium':'Comercial'} ativa para teste.`);
@@ -553,6 +660,26 @@ $('#modal-close').innerHTML=icon('close');
 $('#modal-close').addEventListener('click',closeModal);
 $('#modal-cancel').addEventListener('click',closeModal);
 modal.addEventListener('click',event=>{if(event.target===modal)closeModal()});
+$('#inspiration-modal-close').innerHTML=icon('close');
+$('#inspiration-modal-close').addEventListener('click',closeInspirationModal);
+$('#inspiration-modal-cancel').addEventListener('click',closeInspirationModal);
+inspirationModal.addEventListener('click',event=>{if(event.target===inspirationModal)closeInspirationModal()});
+inspirationModal.addEventListener('close',()=>{inspirationForm.reset();inspirationForm.dataset.itemId='';setInspirationPreview('')});
+$('#inspiration-image-file').addEventListener('change',async event=>{
+  const file=event.target.files[0];
+  if (!file) return setInspirationPreview('');
+  try { setInspirationPreview(await readFileAsDataUrl(file)); }
+  catch (error) { toast(error.message); event.target.value=''; }
+});
+inspirationForm.addEventListener('submit',async event=>{
+  event.preventDefault();
+  const submit=$('#inspiration-modal-submit');
+  submit.disabled=true;
+  submit.textContent='A guardar…';
+  try { await saveCustomInspiration(); }
+  catch (error) { toast(error.message||'Não foi possível guardar a inspiração.'); }
+  finally { submit.disabled=false; submit.textContent=inspirationForm.dataset.itemId?'Guardar alterações':'Guardar inspiração'; }
+});
 $('#global-search').innerHTML=icon('search');
 $('.notification-button').insertAdjacentHTML('afterbegin',icon('bell'));
 $('#mobile-menu').innerHTML=icon('menu');
