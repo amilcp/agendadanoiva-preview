@@ -8,10 +8,10 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'">
   <title>Agenda da Noiva — Cor Púrpura</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <link rel="stylesheet" href="styles.css?v=20260917.8">
-  <script defer src="config.js?v=20260917.8"></script>
-  <script defer src="app.js?v=20260917.8"></script>
-  <script defer src="platform.js?v=20260917.8"></script>
+  <link rel="stylesheet" href="styles.css?v=20260917.9">
+  <script defer src="config.js?v=20260917.9"></script>
+  <script defer src="app.js?v=20260917.9"></script>
+  <script defer src="platform.js?v=20260917.9"></script>
 </head>
 <body>
   <div class="app-shell">
@@ -69,11 +69,20 @@
         <button class="icon-button" type="button" aria-label="Fechar" id="inspiration-modal-close"></button>
       </header>
       <div class="modal-fields inspiration-form-fields">
-        <label class="field field-full">
+        <div class="field field-full">
           <span>Fotografia</span>
-          <input class="input" id="inspiration-image-file" name="image" type="file" accept="image/*">
-          <small>No telemóvel escolhe Galeria/Fototeca, Câmara ou Ficheiros. A fotografia será otimizada automaticamente.</small>
-        </label>
+          <div class="inspiration-upload-choices">
+            <label class="upload-choice-button">
+              <input class="inspiration-file-input" id="inspiration-image-file" type="file" accept="image/*">
+              <span>Escolher da galeria</span>
+            </label>
+            <label class="upload-choice-button upload-choice-camera">
+              <input class="inspiration-file-input" id="inspiration-camera-file" type="file" accept="image/*" capture="environment">
+              <span>Tirar fotografia</span>
+            </label>
+          </div>
+          <small id="inspiration-file-status">Escolhe uma fotografia existente ou tira uma nova. A imagem será otimizada automaticamente.</small>
+        </div>
         <div class="inspiration-upload-preview field-full" id="inspiration-upload-preview" hidden></div>
         <label class="field">
           <span>Título</span>
