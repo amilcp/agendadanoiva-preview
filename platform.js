@@ -10,6 +10,7 @@
   const syncChip = document.querySelector('#sync-chip');
   let client = null;
   let currentUser = null;
+  let currentRole = 'couple';
   let syncTimer = null;
   let syncing = false;
   let authMode = 'login';
@@ -24,6 +25,12 @@
     if (/user already registered/i.test(message)) return 'Já existe uma conta com este e-mail.';
     if (/password/i.test(message) && /characters/i.test(message)) return 'A palavra-passe deve ter pelo menos 8 caracteres.';
     return message;
+  };
+  const categoryLabels = { decoracao:'Decoração', vestidos:'Vestidos', bouquets:'Bouquets', convites:'Convites', espacos:'Espaços', outra:'Outra' };
+  const plannerPayload = value => {
+    const payload = structuredClone(value || {});
+    delete payload.adminInspirations;
+    return payload;
   };
 
   function loadSupabaseClient() {
@@ -67,7 +74,8 @@
       ${register ? '<label class="consent-row"><input type="checkbox" name="terms" required><span>Li a informação de privacidade e aceito a utilização dos meus dados para prestar este serviço.</span></label>' : ''}
       <p class="form-message" id="auth-message" role="status"></p>
       <button class="button button-primary button-wide" type="submit">${register ? 'Criar conta' : recover ? 'Enviar ligação de recuperação' : update ? 'Guardar nova palavra-passe' : 'Entrar'}</button>
-      ${mode === 'login' ? '<button class="text-action" type="button" data-auth-mode="recover">Esqueci-me da palavra-passe</button><div class="auth-divider"><span>ou</span></div><button class="button button-ghost button-wide" type="button" data-auth-mode="register">Criar uma conta</button>' : ''}
+      ${!recover&&!update?'<div class="auth-divider"><span>ou</span></div><button class="button button-ghost button-wide google-button" type="button" data-auth-provider="google"><strong>G</strong> Continuar com Google</button><small class="auth-provider-note">Ao continuar, aceitas a utilização dos dados necessários para criar e proteger a conta.</small>':''}
+      ${mode === 'login' ? '<button class="text-action" type="button" data-auth-mode="recover">Esqueci-me da palavra-passe</button><button class="button button-ghost button-wide" type="button" data-auth-mode="register">Criar uma conta com e-mail</button>' : ''}
       ${register || recover ? '<button class="text-action" type="button" data-auth-mode="login">Voltar ao início de sessão</button>' : ''}
     </form>`;
   }
@@ -96,15 +104,64 @@
 
   async function handleSession(session, { pull = true } = {}) {
     currentUser = session?.user || null;
+    currentRole = 'couple';
     updateIdentity();
     if (!currentUser) {
+      app()?.setAdminAccess({ mode:'online', authenticated:false, allowed:false, role:'couple' });
       setSyncStatus(configured ? 'offline' : 'local', configured ? 'Sem sessão' : 'Dados neste dispositivo');
+      await loadOfficialInspirations();
       renderAccount();
       return;
     }
+    const { data: profile, error: profileError } = await client.from('profiles').select('role').eq('id',currentUser.id).maybeSingle();
+    if (!profileError&&profile?.role) currentRole=profile.role;
+    const adminAllowed=['editor','admin'].includes(currentRole);
+    app()?.setAdminAccess({ mode:'online', authenticated:true, allowed:adminAllowed, role:currentRole });
     setSyncStatus('pending', 'A sincronizar…');
     if (pull) await pullRemoteState();
+    await loadOfficialInspirations();
+    const returnRoute=sessionStorage.getItem('agenda-auth-return');
+    if (returnRoute) { sessionStorage.removeItem('agenda-auth-return');location.hash=returnRoute; }
     renderAccount();
+  }
+
+  function mapOfficialInspiration(row) {
+    return { id:row.id, title:row.title, category:row.category, label:categoryLabels[row.category]||'Outra', copy:row.description||'', image:row.image_url, source:row.source_url||'', status:row.status, featured:Boolean(row.featured), storagePath:row.storage_path||'', createdAt:row.created_at, updatedAt:row.updated_at };
+  }
+
+  async function loadOfficialInspirations() {
+    if (!client) return;
+    const { data, error } = await client.from('inspirations').select('id,title,category,description,image_url,storage_path,source_url,status,featured,created_at,updated_at').order('featured',{ascending:false}).order('created_at',{ascending:false});
+    if (error) {
+      if (currentUser) app()?.toast(errorMessage(error));
+      return;
+    }
+    if (Array.isArray(data)) app()?.setOfficialInspirations(data.map(mapOfficialInspiration));
+  }
+
+  async function saveOfficialInspiration(item) {
+    if (!client||!currentUser||!['editor','admin'].includes(currentRole)) throw new Error('Esta conta não tem permissões de administração.');
+    let imageUrl=item.image;
+    let storagePath=item.storagePath||'';
+    if (String(item.image||'').startsWith('data:image/')) {
+      const blob=await fetch(item.image).then(response=>response.blob());
+      storagePath=`${currentUser.id}/${item.id}.jpg`;
+      const { error: uploadError }=await client.storage.from('inspiration-media').upload(storagePath,blob,{contentType:'image/jpeg',upsert:true,cacheControl:'3600'});
+      if (uploadError) throw uploadError;
+      imageUrl=client.storage.from('inspiration-media').getPublicUrl(storagePath).data.publicUrl;
+    }
+    const row={ id:item.id, title:item.title, category:item.category, description:item.copy||'', image_url:imageUrl, storage_path:storagePath||null, source_url:item.source||null, status:item.status||'draft', featured:Boolean(item.featured), created_by:currentUser.id, updated_at:new Date().toISOString() };
+    const { error }=await client.from('inspirations').upsert(row,{onConflict:'id'});
+    if (error) throw error;
+    await loadOfficialInspirations();
+  }
+
+  async function deleteOfficialInspiration(item) {
+    if (!client||!currentUser||currentRole!=='admin') throw new Error('Apenas um administrador pode eliminar conteúdos.');
+    const { error }=await client.from('inspirations').delete().eq('id',item.id);
+    if (error) throw error;
+    if (item.storagePath) await client.storage.from('inspiration-media').remove([item.storagePath]);
+    await loadOfficialInspirations();
   }
 
   async function pullRemoteState() {
@@ -129,7 +186,7 @@
 
   async function pushRemoteState(nextState) {
     if (!client || !currentUser) return;
-    const { error } = await client.from('wedding_planners').upsert({ user_id: currentUser.id, data: nextState, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+    const { error } = await client.from('wedding_planners').upsert({ user_id: currentUser.id, data: plannerPayload(nextState), updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
     if (error) throw error;
   }
 
@@ -137,7 +194,7 @@
     if (!client || !currentUser) return;
     clearTimeout(syncTimer);
     setSyncStatus('pending', 'Alterações pendentes');
-    const snapshot = structuredClone(nextState);
+    const snapshot = plannerPayload(nextState);
     syncTimer = setTimeout(async () => {
       try {
         await pushRemoteState(snapshot);
@@ -184,6 +241,13 @@
     } finally {
       submit.disabled = false;
     }
+  }
+
+  async function signInWithGoogle() {
+    if (!client) return;
+    sessionStorage.setItem('agenda-auth-return',location.hash.replace('#','')||'dashboard');
+    const { error }=await client.auth.signInWithOAuth({ provider:'google', options:{ redirectTo:location.origin+location.pathname+location.search } });
+    if (error) app()?.toast(errorMessage(error));
   }
 
   async function accountAction(action) {
@@ -260,6 +324,8 @@
     document.querySelectorAll('.dialog-close').forEach(button => button.addEventListener('click', () => button.closest('dialog').close()));
     [accountModal, privacyModal].forEach(dialog => dialog?.addEventListener('click', event => { if (event.target === dialog) dialog.close(); }));
     accountContent?.addEventListener('click', event => {
+      const provider = event.target.closest('[data-auth-provider]')?.dataset.authProvider;
+      if (provider === 'google') { signInWithGoogle(); return; }
       const mode = event.target.closest('[data-auth-mode]')?.dataset.authMode;
       if (mode) { authMode = mode; recoveryMode = false; renderAccount(); }
       const action = event.target.closest('[data-account-action]')?.dataset.accountAction;
@@ -287,9 +353,11 @@
     bindEvents();
     updateIdentity();
     if (!configured) {
+      app()?.setAdminAccess({ mode:'demo', authenticated:false, allowed:true, role:'admin' });
       setSyncStatus('local', 'Dados neste dispositivo');
       return;
     }
+    app()?.setAdminAccess({ mode:'online', authenticated:false, allowed:false, role:'couple' });
     try {
       await loadSupabaseClient();
     } catch (error) {
@@ -309,6 +377,6 @@
     });
   }
 
-  window.AgendaPlatform = { scheduleSync, openAccount, openPrivacy, syncNow: pullRemoteState, isConfigured: configured };
+  window.AgendaPlatform = { scheduleSync, openAccount, openPrivacy, syncNow: pullRemoteState, saveOfficialInspiration, deleteOfficialInspiration, reloadOfficialInspirations:loadOfficialInspirations, isConfigured: configured, isAdmin:()=>['editor','admin'].includes(currentRole) };
   init();
 })();
