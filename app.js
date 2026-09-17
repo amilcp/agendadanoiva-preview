@@ -197,7 +197,7 @@ function renderNav() {
 }
 
 const titles = {
-  dashboard:['O nosso casamento','Dashboard'], planeamento:['Passo a passo até ao grande dia','Planeamento'], orcamento:['Controla, planeia, realiza','Orçamento'],
+  dashboard:['É tão bom ter-te aqui!','Olá, Ana!'], planeamento:['Passo a passo até ao grande dia','Planeamento'], orcamento:['Controla, planeia, realiza','Orçamento'],
   convidados:['As pessoas especiais do nosso dia','Convidados'], fornecedores:['Os profissionais do nosso casamento','Fornecedores'], casamento:['Tudo o que faz parte da nossa história','O Casamento'],
   mesas:['Onde se sentam as pessoas especiais','Mesas'], 'grande-dia':['Tudo a postos para viver este momento','O Grande Dia'], memorias:['Guardar o que realmente importa','Memórias'],
   mais:['Acesso rápido','Mais'], edicoes:['Comercial e Premium','Edições']
@@ -231,9 +231,11 @@ function renderDashboard() {
   const overdue = state.tasks.filter(x=>x.status==='atrasada').length;
   const noTable = state.guests.filter(x=>x.rsvp==='confirmado' && !x.tableId).length;
   return `
+    <section class="dashboard-welcome"><h1>Olá, Ana!</h1><p>É tão bom ter-te aqui!</p></section>
     <section class="card hero-card">
       <div class="hero-main"><p class="eyebrow">O NOSSO CASAMENTO</p><h2 class="hero-names">${h(state.couple.names)}</h2><span class="hero-date">${dateFmt.format(new Date(state.couple.date))} · ${h(state.couple.location)}</span></div>
       <div class="countdown"><span>FALTAM</span><strong>${daysToWedding()}</strong><span>DIAS</span></div>
+      <p class="hero-quote">Grandes histórias<br>começam com<br>um sim ♡</p>
     </section>
     <section class="grid grid-4" style="margin-top:16px">
       ${statCard('Planeamento',`${progress}%`,'concluído',progress)}
@@ -246,22 +248,22 @@ function renderDashboard() {
         <div class="card-header"><div><h2>Próximas tarefas</h2><p>O que precisa da vossa atenção primeiro.</p></div><button class="link-button" data-nav="planeamento">Ver todas →</button></div>
         <ul class="check-list">${nextTasks.map(taskRow).join('')}</ul>
       </div>
-      <div class="stack">
-        <div class="card card-pad">
-          <div class="card-header"><div><h3>Próximo pagamento</h3><p>${h(nextPayment?.supplier || 'Sem pagamentos')}</p></div></div>
-          <div class="stat-value">${euro.format(nextPayment ? nextPayment.total-nextPayment.paid : 0)}</div>
-          <p class="meta">${nextPayment ? dateFmt.format(new Date(nextPayment.due)) : ''}</p>
-        </div>
-        <div class="card card-pad">
-          <div class="card-header"><div><h3>O casamento precisa da tua atenção</h3></div></div>
-          <div class="alert-list">
-            <button class="alert-row alert-link" type="button" data-dashboard-jump="guests-pending"><span class="alert-icon">!</span><span>${guests.pending} respostas por confirmar</span><span class="alert-arrow" aria-hidden="true">›</span></button>
-            <button class="alert-row alert-link" type="button" data-dashboard-jump="tasks-overdue"><span class="alert-icon">!</span><span>${overdue} tarefas atrasadas</span><span class="alert-arrow" aria-hidden="true">›</span></button>
-            <button class="alert-row alert-link" type="button" data-dashboard-jump="guests-without-table"><span class="alert-icon">!</span><span>${noTable} convidados sem mesa</span><span class="alert-arrow" aria-hidden="true">›</span></button>
-          </div>
+      <div class="card card-pad payment-card">
+        <div class="card-header"><div><h3>Próximo pagamento</h3><p>${h(nextPayment?.supplier || 'Sem pagamentos')}</p></div></div>
+        <div class="payment-mark">⌂</div><div class="stat-value">${euro.format(nextPayment ? nextPayment.total-nextPayment.paid : 0)}</div>
+        <p class="meta">${nextPayment ? dateFmt.format(new Date(nextPayment.due)) : ''}</p>
+        <button class="button button-primary button-wide" data-nav="orcamento">Ver detalhes</button>
+      </div>
+      <div class="card card-pad attention-card">
+        <div class="card-header"><div><h3>O casamento precisa<br>da tua atenção</h3></div></div>
+        <div class="alert-list">
+          <button class="alert-row alert-link" type="button" data-dashboard-jump="guests-pending"><span class="alert-icon">!</span><span>${guests.pending} respostas por confirmar</span><span class="alert-arrow" aria-hidden="true">›</span></button>
+          <button class="alert-row alert-link" type="button" data-dashboard-jump="tasks-overdue"><span class="alert-icon">!</span><span>${overdue} tarefas atrasadas</span><span class="alert-arrow" aria-hidden="true">›</span></button>
+          <button class="alert-row alert-link" type="button" data-dashboard-jump="guests-without-table"><span class="alert-icon">!</span><span>${noTable} convidados sem mesa</span><span class="alert-arrow" aria-hidden="true">›</span></button>
         </div>
       </div>
-    </section>`;
+    </section>
+    <section class="inspiration-section"><div class="inspiration-head"><h2>Inspiração da semana</h2><button class="link-button" data-nav="casamento">Ver mais →</button></div><div class="inspiration-grid">${['Decoração','Vestidos','Bouquets','Convites','Espaços'].map((label,index)=>`<button class="inspiration-card inspiration-${index+1}" type="button" data-nav="casamento"><span>${label}</span></button>`).join('')}</div></section>`;
 }
 function statCard(label,value,foot,progress) { return `<article class="card stat-card"><span class="stat-label">${label}</span><strong class="stat-value">${value}</strong><span class="stat-foot">${foot}</span><div class="progress-track"><div class="progress-bar" style="width:${Math.min(100,progress||0)}%"></div></div></article>`; }
 function editButton(type,id,label) { return `<button class="edit-button" type="button" data-edit="${type}:${id}" aria-label="Editar ${h(label)}" title="Editar">${icon('edit')}</button>`; }

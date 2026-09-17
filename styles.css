@@ -439,3 +439,156 @@ tr:last-child td { border-bottom: 0; }
   .card { box-shadow:none; break-inside:avoid; }
   body { background:#fff; }
 }
+
+/* Visual system aligned with the approved desktop and mobile mockups */
+:root {
+  --bg:#f7f3f1;
+  --surface:#fffefd;
+  --surface-soft:#fbf8f6;
+  --ink:#292526;
+  --muted:#80787a;
+  --plum:#483840;
+  --plum-2:#68565e;
+  --peach:#f3c9bc;
+  --peach-soft:#fbe8e2;
+  --gold:#bd876e;
+  --line:#ece4e0;
+  --shadow:0 8px 28px rgba(77,55,63,.045);
+  --radius:9px;
+  --sidebar:224px;
+}
+body { background:radial-gradient(circle at 75% 4%,#fbefeb 0,transparent 31%),var(--bg); font-family:"Helvetica Neue",Inter,Arial,sans-serif; font-size:15px; }
+.app-shell { max-width:1720px; margin:0 auto; background:rgba(255,255,255,.28); box-shadow:0 0 80px rgba(86,65,72,.035); }
+.sidebar { padding:24px 15px 20px; background:rgba(255,254,253,.96); border-right:1px solid #f0e7e3; }
+.brand { min-height:92px; margin:0 0 22px; flex-direction:column; gap:1px; }
+.brand-script { color:#292526; font-family:"Segoe Script","Snell Roundhand",cursive; font-size:27px; line-height:.92; text-align:center; transform:rotate(-3deg); font-weight:400; }
+.brand-heart { color:#d28c72; font-size:18px; line-height:1; }
+.nav-list { gap:3px; }
+.nav-link { min-height:42px; padding:10px 13px; border-radius:7px; color:#554f51; font-size:.82rem; font-weight:450; }
+.nav-link.active { background:#f9dfd7; color:#332d2f; }
+.nav-link svg { width:17px; height:17px; stroke-width:1.45; }
+.profile-card { border-top:0; padding:10px 8px; }
+.topbar { min-height:88px; padding:14px clamp(22px,3vw,48px); background:rgba(255,254,253,.92); border-bottom:1px solid rgba(236,228,224,.75); }
+.topbar-copy { display:flex; flex-direction:column; }
+.topbar-copy h1 { order:1; color:#302a2c; font-family:"Segoe Script","Snell Roundhand",Georgia,cursive; font-size:clamp(1.65rem,2.2vw,2.35rem); line-height:1.12; }
+.topbar-copy p { order:2; margin:4px 0 0; color:#777073; font-size:.6rem; font-weight:600; letter-spacing:.22em; }
+.mobile-brand { display:none; }
+.icon-button { width:38px; height:38px; }
+.sync-chip { background:#fff; border-color:#eee5e1; }
+#view { padding:16px clamp(22px,3vw,48px) 64px; max-width:1510px; }
+.card { background:rgba(255,254,253,.96); border:1px solid var(--line); box-shadow:var(--shadow); }
+.card-pad { padding:18px; }
+.card h2,.card h3 { color:#342e30; font-family:Georgia,"Times New Roman",serif; }
+.button { border-radius:5px; font-size:.74rem; font-weight:600; letter-spacing:.03em; }
+.button-primary { background:#f6d3c9; color:#5c4037; }
+.button-secondary { background:#4e3c44; }
+.dashboard-welcome { display:none; }
+.hero-card { min-height:292px; display:grid; grid-template-columns:1fr 1.04fr .68fr; grid-template-rows:1fr auto; background-image:linear-gradient(90deg,rgba(255,255,255,.02),rgba(255,253,251,.05)),url("assets/hero-wedding.webp"); background-size:cover; background-position:center; }
+.hero-card::before,.hero-card::after { display:none; }
+.hero-main { grid-column:2; grid-row:1; align-items:center; text-align:center; padding:34px 18px 10px; }
+.hero-main .eyebrow { color:#635c5e; font-size:.58rem; letter-spacing:.28em; }
+.hero-names { margin:8px 0 10px; color:#2c2729; font-family:"Segoe Script","Snell Roundhand",cursive; font-size:clamp(2.2rem,3.7vw,3.65rem); font-weight:400; }
+.hero-date { color:#4e484a; font-size:.61rem; font-weight:600; letter-spacing:.22em; }
+.countdown { grid-column:2; grid-row:2; align-self:end; min-width:220px; margin:0 auto 23px; padding:13px 30px 0; border:0; border-top:2px solid rgba(230,170,151,.55); }
+.countdown strong { color:#292526; font:400 3.2rem/1 Georgia,serif; }
+.countdown span { color:#514b4d; font-size:.57rem; letter-spacing:.28em; }
+.hero-quote { grid-column:3; grid-row:1/3; align-self:center; margin:0 28px 0 0; color:#53484c; font-family:"Segoe Script","Snell Roundhand",cursive; font-size:1.35rem; line-height:1.55; transform:rotate(-5deg); }
+.grid { gap:10px; }
+.grid-4 { gap:10px; }
+.stat-card { min-height:126px; padding:16px; align-items:center; text-align:center; }
+.stat-label { color:#6e6769; font-size:.59rem; letter-spacing:.18em; }
+.stat-value { color:#302a2c; font-size:1.55rem; }
+.stat-foot { font-size:.67rem; }
+.stat-card .progress-track { height:4px; }
+.progress-bar { background:linear-gradient(90deg,#e6b49f,#cf896d); }
+.dashboard-layout { grid-template-columns:minmax(360px,1.35fr) minmax(220px,.72fr) minmax(270px,.95fr); gap:10px; margin-top:10px; }
+.dashboard-layout > .card { min-height:244px; }
+.check-row { padding:8px 0; }
+.payment-card { display:flex; flex-direction:column; }
+.payment-card .payment-mark { width:48px; height:48px; display:grid; place-items:center; margin:2px 0 10px; border-radius:50%; background:#fbefea; color:#c78369; font:1.4rem Georgia,serif; }
+.payment-card .stat-value { font-size:1.65rem; }
+.payment-card .button { margin-top:auto; }
+.attention-card .card-header { margin-bottom:8px; }
+.alert-row { padding:8px 5px; }
+.alert-icon { width:28px; height:28px; font-size:.72rem; }
+.inspiration-section { margin-top:20px; }
+.inspiration-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+.inspiration-head h2 { margin:0; color:#302a2c; font:400 1.45rem "Segoe Script","Snell Roundhand",cursive; }
+.inspiration-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; }
+.inspiration-card { min-height:122px; display:flex; align-items:flex-end; padding:0; overflow:hidden; border:1px solid var(--line); border-radius:7px; background-position:center; background-size:cover; cursor:pointer; }
+.inspiration-card span { width:100%; padding:10px 12px; background:rgba(255,254,253,.92); color:#4d4648; text-align:left; font-size:.75rem; }
+.inspiration-1 { background-image:linear-gradient(145deg,#dfc7bd,#f8eeea); }
+.inspiration-2 { background-image:linear-gradient(145deg,#eeeae5,#c8b8af); }
+.inspiration-3 { background-image:linear-gradient(145deg,#d9bea9,#f1ded5); }
+.inspiration-4 { background-image:linear-gradient(145deg,#f0e0d8,#cab5ac); }
+.inspiration-5 { background-image:linear-gradient(145deg,#b9c1a8,#e8ddce); }
+.page-actions { margin-bottom:12px; }
+.module-overview,.module-detail-hero,.edition-intro { background:linear-gradient(125deg,#fffefd,#f9ebe6); }
+.module-card { min-height:142px; border-radius:8px; }
+.module-card:hover,.module-card:focus-visible { border-color:#e5b6a5; box-shadow:0 10px 28px rgba(86,61,70,.08); }
+.module-detail-hero h2,.edition-intro h2 { font-family:"Segoe Script","Snell Roundhand",Georgia,cursive; font-weight:400; }
+.budget-numbers { border-radius:6px; }
+.table-wrap { border-radius:7px; }
+th { background:#fcf9f7; color:#716a6c; font-size:.61rem; letter-spacing:.06em; }
+td { font-size:.78rem; }
+.supplier-grid { gap:10px; }
+.supplier-card { border-radius:7px; }
+.supplier-visual { height:132px; background-image:linear-gradient(90deg,rgba(255,255,255,.05),rgba(245,226,218,.38)),url("assets/hero-wedding.webp"); background-size:cover; background-position:left center; }
+.supplier-card:nth-child(2n) .supplier-visual { background-position:28% center; filter:saturate(.75); }
+.supplier-card:nth-child(3n) .supplier-visual { background-position:12% center; filter:sepia(.08); }
+.supplier-visual::after { display:none; }
+.floor { border-radius:8px; }
+.table-card { border-radius:10px; }
+.modal { border-radius:10px; }
+
+@media (max-width:1120px) {
+  :root { --sidebar:205px; }
+  .dashboard-layout { grid-template-columns:1.15fr .85fr; }
+  .attention-card { grid-column:1/-1; min-height:0!important; }
+  .attention-card .alert-list { grid-template-columns:repeat(3,1fr); }
+}
+
+@media (max-width:780px) {
+  body { background:#faf7f5; }
+  .topbar { min-height:74px; padding:7px 13px; justify-content:space-between; background:rgba(255,254,253,.96); }
+  .mobile-brand { display:flex; flex:1; align-items:center; justify-content:center; gap:3px; color:#292526; font-family:"Segoe Script","Snell Roundhand",cursive; font-size:1rem; line-height:.85; text-align:center; transform:rotate(-2deg); }
+  .mobile-brand i { color:#d28c72; font:normal 1rem Georgia,serif; }
+  .topbar-copy { display:none; }
+  .topbar-actions .sync-chip,.topbar-actions #global-search { display:none; }
+  #view { padding:13px 10px 24px; }
+  .dashboard-welcome { display:block; padding:6px 6px 12px; }
+  .dashboard-welcome h1 { margin:0; color:#302a2c; font:400 1.25rem Georgia,serif; }
+  .dashboard-welcome p { margin:4px 0 0; color:#777073; font-size:.55rem; font-weight:600; letter-spacing:.2em; text-transform:uppercase; }
+  .hero-card { min-height:315px; grid-template-columns:1fr; grid-template-rows:1fr auto; background-position:30% center; }
+  .hero-card::before { content:""; display:block; position:absolute; inset:0; background:linear-gradient(90deg,rgba(255,255,255,.18),rgba(255,253,251,.78)); }
+  .hero-main { grid-column:1; grid-row:1; align-items:flex-end; padding:36px 20px 10px 34%; position:relative; z-index:1; }
+  .hero-names { font-size:2.25rem; }
+  .hero-date { font-size:.52rem; }
+  .countdown { grid-column:1; grid-row:2; width:45%; min-width:150px; margin:0 9% 20px auto; padding:12px 10px 0; position:relative; z-index:1; }
+  .countdown strong { font-size:2.7rem; }
+  .hero-quote { display:none; }
+  .grid-4 { grid-template-columns:repeat(4,minmax(0,1fr)); gap:5px; }
+  .stat-card { min-width:0; min-height:112px; padding:10px 4px; }
+  .stat-label { font-size:.48rem; letter-spacing:.06em; }
+  .stat-value { font-size:1rem; }
+  .stat-foot { font-size:.53rem; }
+  .dashboard-layout { grid-template-columns:1fr; }
+  .dashboard-layout > .card { min-height:0; }
+  .attention-card { grid-column:auto; }
+  .attention-card .alert-list { display:grid; grid-template-columns:1fr; }
+  .inspiration-grid { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; padding-bottom:4px; }
+  .inspiration-card { min-width:145px; scroll-snap-align:start; }
+  .supplier-visual { height:118px; }
+  .mobile-nav { min-height:68px; background:rgba(255,254,253,.98); }
+  .mobile-nav .nav-link.active { color:#c77e63; background:transparent; }
+  .mobile-nav .nav-link { font-size:.56rem; }
+}
+
+@media (max-width:480px) {
+  .grid-4 { grid-template-columns:repeat(4,minmax(0,1fr)); }
+  .supplier-grid,.module-grid { grid-template-columns:1fr; }
+  .stat-card { min-height:104px; }
+  .hero-main { padding-left:31%; }
+  .page-actions .button { min-width:0; }
+  .timeline-item .row-actions { grid-column:3; justify-self:end; }
+}
