@@ -480,6 +480,8 @@ body { background:radial-gradient(circle at 75% 4%,#fbefeb 0,transparent 31%),va
 .card-pad { padding:18px; }
 .card h2,.card h3 { color:#342e30; font-family:Georgia,"Times New Roman",serif; }
 .button { border-radius:5px; font-size:.74rem; font-weight:600; letter-spacing:.03em; }
+.button { display:inline-flex; align-items:center; justify-content:center; gap:7px; }
+.button svg { width:16px; height:16px; flex:0 0 auto; }
 .button-primary { background:#f6d3c9; color:#5c4037; }
 .button-secondary { background:#4e3c44; }
 .dashboard-welcome { display:none; }
