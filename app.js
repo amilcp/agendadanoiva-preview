@@ -1,5 +1,6 @@
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+const h = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
 const euro = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
 const dateFmt = new Intl.DateTimeFormat('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' });
 
@@ -128,10 +129,12 @@ let state = loadState();
 let guestFilter = 'todos';
 let guestSearch = '';
 
-function loadState() {
-  try {
-    const saved = JSON.parse(localStorage.getItem('agenda-noiva-state') || '{}');
-    const next = { ...structuredClone(DEFAULT_STATE), ...saved };
+function normaliseState(saved = {}) {
+    const next = { ...structuredClone(DEFAULT_STATE), ...(saved && typeof saved === 'object' ? saved : {}) };
+    ['tasks','expenses','guests','suppliers','tables','timeline'].forEach(key => {
+      if (!Array.isArray(next[key])) next[key] = structuredClone(DEFAULT_STATE[key]);
+    });
+    if (!next.couple || typeof next.couple !== 'object' || Array.isArray(next.couple)) next.couple = structuredClone(DEFAULT_STATE.couple);
     next.plan ||= 'comercial';
     next.moduleWork ||= {};
     modules.forEach(([number,,,seed]) => {
@@ -140,20 +143,18 @@ function loadState() {
       next.moduleWork[number] = { completed: seeded, notes: '', ...(next.moduleWork[number] || {}) };
     });
     return next;
+}
+function loadState() {
+  try {
+    return normaliseState(JSON.parse(localStorage.getItem('agenda-noiva-state') || '{}'));
   }
   catch {
-    const next = structuredClone(DEFAULT_STATE);
-    next.plan = 'comercial';
-    next.moduleWork = {};
-    modules.forEach(([number,,,seed]) => {
-      const items = moduleBlueprints[number].items;
-      next.moduleWork[number] = { completed: items.filter((_,index) => index < Math.round(items.length * seed / 100)), notes: '' };
-    });
-    return next;
+    return normaliseState();
   }
 }
 function saveState(message) {
   localStorage.setItem('agenda-noiva-state', JSON.stringify(state));
+  window.AgendaPlatform?.scheduleSync?.(state);
   if (message) toast(message);
   render();
 }
@@ -224,12 +225,13 @@ function renderDashboard() {
   const totals = expenseTotals(), guests = guestCounts();
   const completed = state.tasks.filter(x=>x.status==='concluida').length;
   const progress = Math.round((completed/state.tasks.length)*100);
-  const nextTasks = state.tasks.filter(x=>x.status!=='concluida').slice(0,5);
+  const nextTasks = [...state.tasks].filter(x=>x.status!=='concluida').sort((a,b)=>a.due.localeCompare(b.due)).slice(0,5);
+  const nextPayment = [...state.expenses].filter(x=>Number(x.total)>Number(x.paid)).sort((a,b)=>a.due.localeCompare(b.due))[0];
   const overdue = state.tasks.filter(x=>x.status==='atrasada').length;
   const noTable = state.guests.filter(x=>x.rsvp==='confirmado' && !x.tableId).length;
   return `
     <section class="card hero-card">
-      <div class="hero-main"><p class="eyebrow">O NOSSO CASAMENTO</p><h2 class="hero-names">${state.couple.names}</h2><span class="hero-date">${dateFmt.format(new Date(state.couple.date))} · ${state.couple.location}</span></div>
+      <div class="hero-main"><p class="eyebrow">O NOSSO CASAMENTO</p><h2 class="hero-names">${h(state.couple.names)}</h2><span class="hero-date">${dateFmt.format(new Date(state.couple.date))} · ${h(state.couple.location)}</span></div>
       <div class="countdown"><span>FALTAM</span><strong>${daysToWedding()}</strong><span>DIAS</span></div>
     </section>
     <section class="grid grid-4" style="margin-top:16px">
@@ -245,9 +247,9 @@ function renderDashboard() {
       </div>
       <div class="stack">
         <div class="card card-pad">
-          <div class="card-header"><div><h3>Próximo pagamento</h3><p>${state.expenses[0]?.supplier || 'Sem pagamentos'}</p></div></div>
-          <div class="stat-value">${euro.format(state.expenses[0] ? state.expenses[0].total-state.expenses[0].paid : 0)}</div>
-          <p class="meta">${state.expenses[0] ? dateFmt.format(new Date(state.expenses[0].due)) : ''}</p>
+          <div class="card-header"><div><h3>Próximo pagamento</h3><p>${h(nextPayment?.supplier || 'Sem pagamentos')}</p></div></div>
+          <div class="stat-value">${euro.format(nextPayment ? nextPayment.total-nextPayment.paid : 0)}</div>
+          <p class="meta">${nextPayment ? dateFmt.format(new Date(nextPayment.due)) : ''}</p>
         </div>
         <div class="card card-pad">
           <div class="card-header"><div><h3>O casamento precisa da tua atenção</h3></div></div>
@@ -261,7 +263,7 @@ function renderDashboard() {
     </section>`;
 }
 function statCard(label,value,foot,progress) { return `<article class="card stat-card"><span class="stat-label">${label}</span><strong class="stat-value">${value}</strong><span class="stat-foot">${foot}</span><div class="progress-track"><div class="progress-bar" style="width:${Math.min(100,progress||0)}%"></div></div></article>`; }
-function taskRow(t) { return `<li class="check-row ${t.status==='concluida'?'done':''}"><input type="checkbox" data-task-toggle="${t.id}" ${t.status==='concluida'?'checked':''} aria-label="Concluir ${t.title}"><span class="task-name">${t.title}</span><span class="meta">${dateFmt.format(new Date(t.due))}</span><button class="delete-button" data-delete="task:${t.id}" aria-label="Eliminar tarefa">×</button></li>`; }
+function taskRow(t) { return `<li class="check-row ${t.status==='concluida'?'done':''}"><input type="checkbox" data-task-toggle="${t.id}" ${t.status==='concluida'?'checked':''} aria-label="Concluir ${h(t.title)}"><span class="task-name">${h(t.title)}</span><span class="meta">${dateFmt.format(new Date(t.due))}</span><button class="delete-button" data-delete="task:${t.id}" aria-label="Eliminar tarefa">×</button></li>`; }
 
 function renderPlanning() {
   const groups = [['Esta semana',state.tasks.filter(x=>x.status!=='concluida').slice(0,4)],['Próximas',state.tasks.filter(x=>x.status!=='concluida').slice(4)],['Concluídas',state.tasks.filter(x=>x.status==='concluida')]];
@@ -275,15 +277,15 @@ function renderBudget() {
       <div class="card budget-total"><span class="stat-label">Orçamento total</span><strong>${euro.format(state.couple.budget)}</strong><div class="budget-numbers">
         ${[['Contratado',t.contracted],['Pago',t.paid],['Por pagar',t.due],['Disponível',t.available]].map(([l,v])=>`<div class="budget-number"><strong>${euro.format(v)}</strong><span>${l}</span></div>`).join('')}
       </div></div>
-      <div class="card donut-card"><div class="donut" style="--value:${pct}%"><div class="donut-label"><strong>${pct}%</strong><span class="meta">contratado</span></div></div><div><h2>Distribuição</h2><div class="legend">${[...new Set(state.expenses.map(x=>x.category))].slice(0,6).map((x,i)=>`<span><i style="opacity:${1-i*.1}"></i>${x}</span>`).join('')}</div></div></div>
+      <div class="card donut-card"><div class="donut" style="--value:${pct}%"><div class="donut-label"><strong>${pct}%</strong><span class="meta">contratado</span></div></div><div><h2>Distribuição</h2><div class="legend">${[...new Set(state.expenses.map(x=>x.category))].slice(0,6).map((x,i)=>`<span><i style="opacity:${1-i*.1}"></i>${h(x)}</span>`).join('')}</div></div></div>
     </section>${state.plan==='premium' ? renderPremiumFinance(t) : renderPremiumPrompt('Finanças avançadas','Alertas, previsões e comparações automáticas estão disponíveis na edição Premium.')}
-    <section class="card card-pad" style="margin-top:16px"><div class="card-header"><div><h2>Despesas e pagamentos</h2><p>Valores contratados e prestações realizadas.</p></div></div><div class="table-wrap"><table><thead><tr><th>Categoria</th><th>Fornecedor</th><th>Total</th><th>Pago</th><th>Por pagar</th><th>Vencimento</th><th></th></tr></thead><tbody>${state.expenses.map(x=>`<tr><td>${x.category}</td><td>${x.supplier}</td><td>${euro.format(x.total)}</td><td>${euro.format(x.paid)}</td><td>${euro.format(x.total-x.paid)}</td><td>${dateFmt.format(new Date(x.due))}</td><td><button class="delete-button" data-delete="expense:${x.id}">×</button></td></tr>`).join('')}</tbody></table></div></section>`;
+    <section class="card card-pad" style="margin-top:16px"><div class="card-header"><div><h2>Despesas e pagamentos</h2><p>Valores contratados e prestações realizadas.</p></div></div><div class="table-wrap"><table><thead><tr><th>Categoria</th><th>Fornecedor</th><th>Total</th><th>Pago</th><th>Por pagar</th><th>Vencimento</th><th></th></tr></thead><tbody>${state.expenses.map(x=>`<tr><td>${h(x.category)}</td><td>${h(x.supplier)}</td><td>${euro.format(x.total)}</td><td>${euro.format(x.paid)}</td><td>${euro.format(x.total-x.paid)}</td><td>${dateFmt.format(new Date(x.due))}</td><td><button class="delete-button" data-delete="expense:${x.id}">×</button></td></tr>`).join('')}</tbody></table></div></section>`;
 }
 
 function renderPremiumFinance(t) {
   const next = [...state.expenses].filter(x=>x.total>x.paid).sort((a,b)=>a.due.localeCompare(b.due))[0];
   const reserve = Math.max(0,Math.round((t.available / Math.max(1,state.couple.budget))*100));
-  return `<section class="premium-insights card"><div class="premium-label">${icon('sparkles')} PREMIUM</div><div><span>Margem disponível</span><strong>${reserve}%</strong><small>${euro.format(t.available)} por contratar</small></div><div><span>Próximo compromisso</span><strong>${next ? euro.format(next.total-next.paid) : euro.format(0)}</strong><small>${next ? `${next.supplier} · ${dateFmt.format(new Date(next.due))}` : 'Sem pagamentos pendentes'}</small></div><div><span>Estado do orçamento</span><strong>${t.available>=0?'Dentro do limite':'Acima do limite'}</strong><small>${t.available>=0?'Sem desvios críticos':'Rever valores contratados'}</small></div></section>`;
+  return `<section class="premium-insights card"><div class="premium-label">${icon('sparkles')} PREMIUM</div><div><span>Margem disponível</span><strong>${reserve}%</strong><small>${euro.format(t.available)} por contratar</small></div><div><span>Próximo compromisso</span><strong>${next ? euro.format(next.total-next.paid) : euro.format(0)}</strong><small>${next ? `${h(next.supplier)} · ${dateFmt.format(new Date(next.due))}` : 'Sem pagamentos pendentes'}</small></div><div><span>Estado do orçamento</span><strong>${t.available>=0?'Dentro do limite':'Acima do limite'}</strong><small>${t.available>=0?'Sem desvios críticos':'Rever valores contratados'}</small></div></section>`;
 }
 
 function renderPremiumPrompt(title,copy) {
@@ -295,12 +297,12 @@ function renderGuests() {
   const guests=state.guests.filter(x=>(guestFilter==='todos'||x.rsvp===guestFilter)&&x.name.toLowerCase().includes(guestSearch.toLowerCase()));
   return `${actionButtons([button('Exportar','export-data','ghost','download'),button('Importar','import-data','ghost','upload'),button('Adicionar convidado','add-guest')])}
     <section class="grid grid-4">${statCard('Confirmados',c.confirmed,'pessoas',100)}${statCard('Pendentes',c.pending,'respostas',100)}${statCard('Recusaram',c.refused,'convites',100)}${statCard('Total',c.total,'registos',100)}</section>
-    <section class="card card-pad" style="margin-top:16px"><div class="toolbar"><div class="searchbox"><input id="guest-search" value="${guestSearch}" placeholder="Pesquisar convidado…" aria-label="Pesquisar convidado"></div><div class="filter-pills">${['todos','confirmado','pendente','recusado'].map(x=>`<button class="pill ${guestFilter===x?'active':''}" data-guest-filter="${x}">${x==='todos'?'Todos':statusLabel(x)}</button>`).join('')}</div></div>
-    <div class="table-wrap"><table><thead><tr><th>Nome</th><th>Grupo</th><th>Resposta</th><th>Pessoas</th><th>Mesa</th><th>Refeição</th><th></th></tr></thead><tbody>${guests.map(g=>`<tr><td>${g.name}</td><td>${g.group}</td><td><span class="status ${g.rsvp}">${statusLabel(g.rsvp)}</span></td><td>${g.people}</td><td>${state.tables.find(t=>t.id===g.tableId)?.name || '—'}</td><td>${g.meal}</td><td><button class="delete-button" data-delete="guest:${g.id}">×</button></td></tr>`).join('')}</tbody></table></div></section>`;
+    <section class="card card-pad" style="margin-top:16px"><div class="toolbar"><div class="searchbox"><input id="guest-search" value="${h(guestSearch)}" placeholder="Pesquisar convidado…" aria-label="Pesquisar convidado"></div><div class="filter-pills">${['todos','confirmado','pendente','recusado'].map(x=>`<button class="pill ${guestFilter===x?'active':''}" data-guest-filter="${x}">${x==='todos'?'Todos':statusLabel(x)}</button>`).join('')}</div></div>
+    <div class="table-wrap"><table><thead><tr><th>Nome</th><th>Grupo</th><th>Resposta</th><th>Pessoas</th><th>Mesa</th><th>Refeição</th><th></th></tr></thead><tbody>${guests.map(g=>`<tr><td>${h(g.name)}</td><td>${h(g.group)}</td><td><span class="status ${g.rsvp}">${statusLabel(g.rsvp)}</span></td><td>${g.people}</td><td>${h(state.tables.find(t=>t.id===g.tableId)?.name || '—')}</td><td>${h(g.meal)}</td><td><button class="delete-button" data-delete="guest:${g.id}">×</button></td></tr>`).join('')}</tbody></table></div></section>`;
 }
 
 function renderSuppliers() {
-  return `${actionButtons([button('Adicionar fornecedor','add-supplier')])}<section class="supplier-grid">${state.suppliers.map(s=>`<article class="card supplier-card"><div class="supplier-visual"></div><div class="supplier-body"><span class="status ${s.status}">${statusLabel(s.status)}</span><h3>${s.service}</h3><p>${s.name}<br>${s.contact}</p><button class="delete-button" data-delete="supplier:${s.id}" aria-label="Eliminar fornecedor">Eliminar</button></div></article>`).join('')}</section>`;
+  return `${actionButtons([button('Adicionar fornecedor','add-supplier')])}<section class="supplier-grid">${state.suppliers.map(s=>`<article class="card supplier-card"><div class="supplier-visual"></div><div class="supplier-body"><span class="status ${s.status}">${statusLabel(s.status)}</span><h3>${h(s.service)}</h3><p>${h(s.name)}<br>${h(s.contact)}</p><button class="delete-button" data-delete="supplier:${s.id}" aria-label="Eliminar fornecedor">Eliminar</button></div></article>`).join('')}</section>`;
 }
 
 function renderModules() {
@@ -330,7 +332,7 @@ function renderModuleDetail(number) {
       </div>
       <div class="stack">
         <aside class="card reflection-card"><p class="eyebrow">CONVERSA A DOIS</p><blockquote>${guide.question}</blockquote></aside>
-        <aside class="card card-pad module-notes-card"><div class="card-header"><div><p class="eyebrow">NOTAS DO CASAL</p><h3>Decisões e ideias</h3></div></div><textarea class="textarea module-notes" data-module-notes="${number}" placeholder="Escrevam aqui o que ficou decidido…">${work.notes || ''}</textarea><button class="button button-primary" data-action="save-module-notes" data-module-number="${number}">Guardar notas</button></aside>
+        <aside class="card card-pad module-notes-card"><div class="card-header"><div><p class="eyebrow">NOTAS DO CASAL</p><h3>Decisões e ideias</h3></div></div><textarea class="textarea module-notes" data-module-notes="${number}" placeholder="Escrevam aqui o que ficou decidido…">${h(work.notes || '')}</textarea><button class="button button-primary" data-action="save-module-notes" data-module-number="${number}">Guardar notas</button></aside>
       </div>
     </section>`;
 }
@@ -343,30 +345,30 @@ function renderCommercialTables() {
   const confirmed=state.guests.filter(g=>g.rsvp==='confirmado');
   return `${actionButtons([button('Adicionar mesa','add-table')])}
     <section class="edition-notice card"><div><span class="edition-chip">COMERCIAL</span><h2>Organização simples e completa</h2><p>Atribui cada convidado a uma mesa. A edição Premium acrescenta planta visual e arrastar e largar.</p></div><button class="button button-ghost" data-nav="edicoes">Comparar edições</button></section>
-    <section class="grid grid-3 table-summary">${state.tables.map(t=>{const used=state.guests.filter(g=>g.tableId===t.id).reduce((sum,g)=>sum+Number(g.people||0),0);return `<article class="card table-summary-card"><div><h3>${t.name}</h3><span>${used}/${t.capacity} lugares</span></div><button class="delete-button" data-delete="table:${t.id}" aria-label="Eliminar ${t.name}">×</button><div class="progress-track"><div class="progress-bar" style="width:${Math.min(100,Math.round(used/t.capacity*100))}%"></div></div></article>`}).join('')}</section>
-    <section class="card card-pad" style="margin-top:16px"><div class="card-header"><div><h2>Distribuição dos convidados</h2><p>Todos os confirmados podem ser organizados sem Premium.</p></div></div><div class="table-wrap"><table><thead><tr><th>Convidado</th><th>Grupo</th><th>Pessoas</th><th>Mesa</th></tr></thead><tbody>${confirmed.map(g=>`<tr><td>${g.name}</td><td>${g.group}</td><td>${g.people}</td><td><select class="select table-select" data-guest-table-select="${g.id}" aria-label="Mesa de ${g.name}"><option value="">Sem mesa</option>${state.tables.map(t=>`<option value="${t.id}" ${g.tableId===t.id?'selected':''}>${t.name}</option>`).join('')}</select></td></tr>`).join('')}</tbody></table></div></section>`;
+    <section class="grid grid-3 table-summary">${state.tables.map(t=>{const used=state.guests.filter(g=>g.tableId===t.id).reduce((sum,g)=>sum+Number(g.people||0),0);return `<article class="card table-summary-card"><div><h3>${h(t.name)}</h3><span>${used}/${t.capacity} lugares</span></div><button class="delete-button" data-delete="table:${t.id}" aria-label="Eliminar ${h(t.name)}">×</button><div class="progress-track"><div class="progress-bar" style="width:${Math.min(100,Math.round(used/t.capacity*100))}%"></div></div></article>`}).join('')}</section>
+    <section class="card card-pad" style="margin-top:16px"><div class="card-header"><div><h2>Distribuição dos convidados</h2><p>Todos os confirmados podem ser organizados sem Premium.</p></div></div><div class="table-wrap"><table><thead><tr><th>Convidado</th><th>Grupo</th><th>Pessoas</th><th>Mesa</th></tr></thead><tbody>${confirmed.map(g=>`<tr><td>${h(g.name)}</td><td>${h(g.group)}</td><td>${g.people}</td><td><select class="select table-select" data-guest-table-select="${g.id}" aria-label="Mesa de ${h(g.name)}"><option value="">Sem mesa</option>${state.tables.map(t=>`<option value="${t.id}" ${g.tableId===t.id?'selected':''}>${h(t.name)}</option>`).join('')}</select></td></tr>`).join('')}</tbody></table></div></section>`;
 }
 
 function renderPremiumTables() {
   const unassigned=state.guests.filter(g=>g.rsvp==='confirmado'&&!g.tableId);
   return `${actionButtons([button('Adicionar mesa','add-table')])}<section class="premium-mode-banner">${icon('sparkles')} Planta visual Premium ativa</section><section class="seating-layout">
     <aside class="card seating-panel"><h2>Sem mesa</h2><div class="guest-pool" data-drop-table="none">${unassigned.length?unassigned.map(guestChip).join(''):'<p class="meta">Todos os confirmados têm mesa.</p>'}</div></aside>
-    <div class="floor">${state.tables.map(t=>{const guests=state.guests.filter(g=>g.tableId===t.id);const used=guests.reduce((sum,g)=>sum+Number(g.people||0),0);return `<article class="table-card" data-drop-table="${t.id}"><header><div><h3>${t.name}</h3><span class="capacity">${used}/${t.capacity} lugares</span></div><button class="delete-button" data-delete="table:${t.id}">×</button></header><div class="table-guests">${guests.map(guestChip).join('')}</div></article>`}).join('')}</div>
+    <div class="floor">${state.tables.map(t=>{const guests=state.guests.filter(g=>g.tableId===t.id);const used=guests.reduce((sum,g)=>sum+Number(g.people||0),0);return `<article class="table-card" data-drop-table="${t.id}"><header><div><h3>${h(t.name)}</h3><span class="capacity">${used}/${t.capacity} lugares</span></div><button class="delete-button" data-delete="table:${t.id}">×</button></header><div class="table-guests">${guests.map(guestChip).join('')}</div></article>`}).join('')}</div>
     <aside class="card seating-panel"><h2>Resumo</h2><div class="grid grid-2">${statCard('Confirmados',guestCounts().confirmed,'pessoas',100)}${statCard('Mesas',state.tables.length,'criadas',100)}</div><p class="meta" style="margin-top:16px">Arrasta cada convidado para a mesa pretendida.</p></aside>
   </section>`;
 }
-function guestChip(g){return `<div class="guest-chip" draggable="true" data-guest-id="${g.id}"><span class="mini-avatar">${g.name[0]}</span><span>${g.name}</span></div>`}
+function guestChip(g){return `<div class="guest-chip" draggable="true" data-guest-id="${g.id}"><span class="mini-avatar">${h(g.name[0])}</span><span>${h(g.name)}</span></div>`}
 
 function renderDay() {
-  return `${actionButtons([button('Imprimir dossier','print-dossier','ghost','download'),button('Adicionar momento','add-timeline')])}<section class="grid grid-3" style="margin-bottom:16px">${statCard('Data',dateFmt.format(new Date(state.couple.date)),'o grande dia',100)}${statCard('Faltam',daysToWedding(),'dias',100)}${statCard('Momentos',state.timeline.length,'na timeline',100)}</section><section class="card card-pad"><div class="card-header"><div><h2>Timeline</h2><p>O plano operacional do dia.</p></div></div><ol class="timeline">${state.timeline.sort((a,b)=>a.time.localeCompare(b.time)).map(x=>`<li class="timeline-item"><span class="timeline-time">${x.time}</span><i class="timeline-dot"></i><div class="timeline-copy"><strong>${x.title}</strong><span>${x.location}</span></div><button class="delete-button" data-delete="timeline:${x.id}">×</button></li>`).join('')}</ol></section>`;
+  return `${actionButtons([button('Imprimir dossier','print-dossier','ghost','download'),button('Adicionar momento','add-timeline')])}<section class="grid grid-3" style="margin-bottom:16px">${statCard('Data',dateFmt.format(new Date(state.couple.date)),'o grande dia',100)}${statCard('Faltam',daysToWedding(),'dias',100)}${statCard('Momentos',state.timeline.length,'na timeline',100)}</section><section class="card card-pad"><div class="card-header"><div><h2>Timeline</h2><p>O plano operacional do dia.</p></div></div><ol class="timeline">${state.timeline.sort((a,b)=>a.time.localeCompare(b.time)).map(x=>`<li class="timeline-item"><span class="timeline-time">${h(x.time)}</span><i class="timeline-dot"></i><div class="timeline-copy"><strong>${h(x.title)}</strong><span>${h(x.location)}</span></div><button class="delete-button" data-delete="timeline:${x.id}">×</button></li>`).join('')}</ol></section>`;
 }
 
 function renderMemories() {
-  return `<section class="card memory-card"><p class="eyebrow">WEDDING BOOK</p><blockquote>“Há momentos que merecem ficar por escrito.”</blockquote><textarea class="textarea" id="memory-text" placeholder="Escreve aqui uma memória, uma frase ou algo que não queres esquecer…">${state.memory || ''}</textarea><div class="page-actions" style="margin:14px 0 0">${button('Guardar memória','save-memory')}</div></section>`;
+  return `<section class="card memory-card"><p class="eyebrow">WEDDING BOOK</p><blockquote>“Há momentos que merecem ficar por escrito.”</blockquote><textarea class="textarea" id="memory-text" placeholder="Escreve aqui uma memória, uma frase ou algo que não queres esquecer…">${h(state.memory || '')}</textarea><div class="page-actions" style="margin:14px 0 0">${button('Guardar memória','save-memory')}</div></section>`;
 }
 
 function renderMore() {
-  return `<section class="module-grid">${navItems.filter(([id])=>['fornecedores','mesas','grande-dia','memorias','edicoes'].includes(id)).map(([id,label,ico])=>`<article class="card module-card" data-nav="${id}">${icon(ico)}<h3>${label}</h3><p>${id==='edicoes'?`Edição atual: ${state.plan==='premium'?'Premium':'Comercial'}.`:'Abrir esta área da agenda.'}</p></article>`).join('')}<article class="card module-card" data-action="export-data">${icon('download')}<h3>Exportar dados</h3><p>Guardar uma cópia de segurança em JSON.</p></article><article class="card module-card" data-action="reset-data">${icon('more')}<h3>Repor demonstração</h3><p>Voltar aos dados iniciais deste protótipo.</p></article></section>`;
+  return `<section class="module-grid">${navItems.filter(([id])=>['fornecedores','mesas','grande-dia','memorias','edicoes'].includes(id)).map(([id,label,ico])=>`<article class="card module-card" data-nav="${id}">${icon(ico)}<h3>${label}</h3><p>${id==='edicoes'?`Edição atual: ${state.plan==='premium'?'Premium':'Comercial'}.`:'Abrir esta área da agenda.'}</p></article>`).join('')}<article class="card module-card" data-action="account">${icon('guests')}<h3>Conta e sincronização</h3><p>Entrar, recuperar o acesso e editar os dados do casamento.</p></article><article class="card module-card" data-action="export-data">${icon('download')}<h3>Exportar dados</h3><p>Guardar uma cópia de segurança em JSON.</p></article><article class="card module-card" data-action="privacy">${icon('day')}<h3>Privacidade e dados</h3><p>Consultar, descarregar ou eliminar os teus dados.</p></article><article class="card module-card" data-action="reset-data">${icon('more')}<h3>Repor demonstração</h3><p>Voltar aos dados iniciais deste protótipo.</p></article></section>`;
 }
 
 function renderEditions() {
@@ -377,7 +379,7 @@ function renderEditions() {
       ${editionCard('comercial','Comercial','Organização completa',commercial)}
       ${editionCard('premium','Premium','Automação e colaboração',premium)}
     </section>
-    <p class="edition-footnote">A seleção serve para testar os dois percursos deste protótipo. Pagamentos e contas serão implementados numa fase posterior.</p>`;
+    <p class="edition-footnote">A seleção serve para testar os dois percursos. As contas e a sincronização ficam disponíveis quando a infraestrutura online estiver ligada.</p>`;
 }
 
 function editionCard(id,name,subtitle,features){
@@ -427,7 +429,8 @@ function exportData(){
   a.href=url;a.download='agenda-da-noiva-dados.json';a.click();URL.revokeObjectURL(url);toast('Cópia de segurança exportada.');
 }
 function importData(file){
-  const reader=new FileReader();reader.onload=()=>{try{state={...structuredClone(DEFAULT_STATE),...JSON.parse(reader.result)};saveState('Dados importados.');}catch{toast('O ficheiro não é válido.')}};reader.readAsText(file);
+  if(file.size>2_000_000) return toast('O ficheiro excede o limite de 2 MB.');
+  const reader=new FileReader();reader.onload=()=>{try{state=normaliseState(JSON.parse(reader.result));saveState('Dados importados.');}catch{toast('O ficheiro não é válido.')}};reader.readAsText(file);
 }
 function toast(message){const t=$('#toast');t.textContent=message;t.classList.add('show');clearTimeout(t._timer);t._timer=setTimeout(()=>t.classList.remove('show'),2600)}
 
@@ -459,6 +462,8 @@ function handleAction(action,source){
   }
   if(action==='export-data') return exportData();
   if(action==='import-data') return $('#import-file').click();
+  if(action==='account') return window.AgendaPlatform?.openAccount?.();
+  if(action==='privacy') return window.AgendaPlatform?.openPrivacy?.();
   if(action==='print-dossier') return window.print();
   if(action==='save-memory'){state.memory=$('#memory-text').value;return saveState('Memória guardada.');}
   if(action==='save-module-notes'){
@@ -477,5 +482,40 @@ $('#mobile-menu').innerHTML=icon('menu');
 $('#mobile-menu').addEventListener('click',()=>$('.sidebar').classList.toggle('open'));
 document.addEventListener('click',e=>{if(e.target.closest('[data-nav]')) $('.sidebar').classList.remove('open')});
 $('#import-file').addEventListener('change',e=>{if(e.target.files[0])importData(e.target.files[0]);e.target.value=''});
+$('#global-search').addEventListener('click',()=>{
+  const query=prompt('O que procuras?');
+  if(!query?.trim()) return;
+  const term=query.trim().toLowerCase();
+  const destinations=[
+    ['planeamento',state.tasks.some(x=>x.title.toLowerCase().includes(term))],
+    ['convidados',state.guests.some(x=>x.name.toLowerCase().includes(term))],
+    ['fornecedores',state.suppliers.some(x=>`${x.name} ${x.service}`.toLowerCase().includes(term))]
+  ];
+  const match=destinations.find(([,found])=>found);
+  if(match){navigate(match[0]);toast('Resultado encontrado.');}else toast('Não encontrámos resultados.');
+});
+$('.notification-button').addEventListener('click',()=>toast('Não tens notificações novas.'));
 window.addEventListener('hashchange',render);
 render();
+
+window.AgendaApp = {
+  getState: () => structuredClone(state),
+  applyRemoteState(data) {
+    state = normaliseState(data);
+    localStorage.setItem('agenda-noiva-state', JSON.stringify(state));
+    render();
+  },
+  updateCouple(couple) {
+    state.couple = { ...state.couple, ...couple, budget: Number(couple.budget || state.couple.budget) };
+    saveState('Dados do casamento atualizados.');
+  },
+  exportData,
+  clearLocalData() {
+    localStorage.removeItem('agenda-noiva-state');
+    state = normaliseState();
+    render();
+  },
+  toast,
+  render
+};
+document.dispatchEvent(new CustomEvent('agenda:app-ready'));
