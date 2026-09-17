@@ -541,8 +541,19 @@ body { background:radial-gradient(circle at 75% 4%,#fbefeb 0,transparent 31%),va
 .inspiration-body { padding:17px; }
 .inspiration-body h3 { margin:0; color:#342e30; font:400 1.15rem Georgia,serif; }
 .inspiration-body > p { min-height:42px; margin:6px 0 15px; color:var(--muted); font-size:.75rem; line-height:1.5; }
+.inspiration-owner { display:block; margin:0 0 7px; color:#a66b58; font-size:.59rem; font-weight:750; letter-spacing:.08em; text-transform:uppercase; }
+.inspiration-source { display:inline-block; margin:-7px 0 14px; color:var(--plum-2); font-size:.71rem; font-weight:700; text-decoration:none; }
+.inspiration-source:hover { text-decoration:underline; }
 .inspiration-body label { display:block; margin-bottom:6px; color:#665e61; font-size:.66rem; font-weight:650; letter-spacing:.06em; text-transform:uppercase; }
 .inspiration-note { min-height:76px; margin-bottom:9px; font-size:.76rem; }
+.inspiration-card-actions { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.inspiration-custom-actions { display:flex; align-items:center; gap:3px; margin-left:auto; }
+.danger-text { color:#a85252; }
+.inspiration-upload-modal { width:min(660px,calc(100% - 26px)); }
+.inspiration-form-fields { max-height:min(68vh,680px); }
+.field small { color:var(--muted); font-size:.67rem; line-height:1.45; }
+.inspiration-upload-preview { min-height:210px; border:1px dashed #dec7be; border-radius:10px; background-color:#fbf5f2; background-position:center; background-size:cover; }
+.inspiration-upload-preview[hidden] { display:none; }
 .inspiration-library > .empty-state { grid-column:1/-1; }
 .page-actions { margin-bottom:12px; }
 .module-overview,.module-detail-hero,.edition-intro { background:linear-gradient(125deg,#fffefd,#f9ebe6); }
@@ -604,6 +615,7 @@ td { font-size:.78rem; }
   .inspiration-counter { display:flex; align-items:baseline; gap:7px; text-align:left; }
   .inspiration-library { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .inspiration-image { min-height:190px; }
+  .inspiration-form-fields { grid-template-columns:1fr; }
   .supplier-visual { height:118px; }
   .mobile-nav { min-height:68px; background:rgba(255,254,253,.98); }
   .mobile-nav .nav-link.active { color:#c77e63; background:transparent; }
