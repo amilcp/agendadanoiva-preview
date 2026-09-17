@@ -92,6 +92,13 @@ const DEFAULT_STATE = {
   inspirationNotes: {},
   customInspirations: [],
   adminInspirations: null,
+  adminSettings: {
+    freeEnabled: true,
+    freeLimits: { tasks:12, guests:20, suppliers:3, inspirations:5 },
+    recoveryEnabled: true,
+    recoveryHours: 24,
+    checkoutReminderHours: 2,
+  },
 };
 
 const inspirationItems = [
@@ -154,6 +161,7 @@ function normaliseState(saved = {}) {
     if (!next.inspirationNotes || typeof next.inspirationNotes !== 'object' || Array.isArray(next.inspirationNotes)) next.inspirationNotes = {};
     if (!Array.isArray(next.adminInspirations)) next.adminInspirations = structuredClone(inspirationItems);
     next.adminInspirations = next.adminInspirations.map(item => ({ status:'published', featured:false, source:'', ...item, label:item.label||item.category||'Outra' }));
+    next.adminSettings = { ...structuredClone(DEFAULT_STATE.adminSettings), ...(next.adminSettings||{}), freeLimits:{...DEFAULT_STATE.adminSettings.freeLimits,...(next.adminSettings?.freeLimits||{})} };
     next.plan ||= 'comercial';
     next.moduleWork ||= {};
     modules.forEach(([number,,,seed]) => {
@@ -232,16 +240,18 @@ const titles = {
 };
 
 function render() {
-  renderNav();
   const current = route();
+  const adminRoute=current==='admin'||current.startsWith('admin/');
+  document.body.classList.toggle('admin-route',adminRoute);
+  renderNav();
   const moduleNumber = current.match(/^module-(\d{2})$/)?.[1];
   const moduleInfo = modules.find(([number]) => number === moduleNumber);
-  const [kicker,title] = moduleInfo ? [`Módulo ${moduleNumber} · Wedding Planner`,moduleInfo[1]] : (titles[current] || titles.dashboard);
+  const [kicker,title] = adminRoute ? titles.admin : moduleInfo ? [`Módulo ${moduleNumber} · Wedding Planner`,moduleInfo[1]] : (titles[current] || titles.dashboard);
   $('#page-kicker').textContent = kicker;
   $('#page-title').textContent = title;
   const renderers = { dashboard: renderDashboard, planeamento: renderPlanning, orcamento: renderBudget, convidados: renderGuests,
     fornecedores: renderSuppliers, casamento: renderModules, inspiracao: renderInspiration, mesas: renderTables, 'grande-dia': renderDay, memorias: renderMemories, mais: renderMore, edicoes: renderEditions, admin: renderAdmin };
-  $('#view').innerHTML = moduleNumber ? renderModuleDetail(moduleNumber) : (renderers[current] || renderDashboard)();
+  $('#view').innerHTML = adminRoute ? renderAdmin(current.split('/')[1]||'overview') : moduleNumber ? renderModuleDetail(moduleNumber) : (renderers[current] || renderDashboard)();
   bindViewEvents();
   $('#view').focus({preventScroll:true});
 }
@@ -587,23 +597,43 @@ async function persistAdminChange(item,message) {
   saveState(message);
 }
 
-function renderAdmin() {
-  if (adminAccess.mode==='online'&&!adminAccess.authenticated) {
-    return `<section class="card admin-locked"><span class="account-mark">♡</span><p class="eyebrow">ÁREA PROTEGIDA</p><h2>Inicia sessão para aceder ao backoffice</h2><p>O painel de administração está reservado às contas autorizadas pela Cor Púrpura.</p><button class="button button-secondary" type="button" data-action="account">Entrar com Google ou e-mail</button></section>`;
-  }
-  if (adminAccess.mode==='online'&&!adminAccess.allowed) {
-    return `<section class="card admin-locked"><span class="account-mark">♡</span><p class="eyebrow">ACESSO RESTRITO</p><h2>Esta conta não tem permissões de administração</h2><p>Podes continuar a utilizar a Agenda da Noiva, mas não podes editar conteúdos oficiais.</p><button class="button button-ghost" type="button" data-nav="dashboard">Voltar à aplicação</button></section>`;
-  }
-  const published=state.adminInspirations.filter(item=>item.status==='published').length;
-  const drafts=state.adminInspirations.filter(item=>item.status==='draft').length;
-  const archived=state.adminInspirations.filter(item=>item.status==='archived').length;
-  return `${actionButtons([button('Ver área dos noivos','admin-preview','ghost','heart'),button('Nova inspiração oficial','add-admin-inspiration','secondary','plus')])}
-    <section class="card admin-demo-banner"><div><p class="eyebrow">${adminAccess.mode==='online'?'LIGAÇÃO SEGURA ATIVA':'MODO DE DEMONSTRAÇÃO'}</p><h2>Backoffice de conteúdos</h2><p>Aqui a equipa da Cor Púrpura prepara e publica as inspirações que ficam disponíveis para todos os casais.</p></div><span class="admin-access-chip">${adminAccess.role==='editor'?'Editor':'Administrador'}</span></section>
-    <section class="grid grid-3 admin-stats"><article class="card stat-card"><span class="stat-label">Publicadas</span><strong class="stat-value">${published}</strong><span class="stat-foot">visíveis na aplicação</span></article><article class="card stat-card"><span class="stat-label">Rascunhos</span><strong class="stat-value">${drafts}</strong><span class="stat-foot">a aguardar publicação</span></article><article class="card stat-card"><span class="stat-label">Arquivadas</span><strong class="stat-value">${archived}</strong><span class="stat-foot">fora da aplicação</span></article></section>
-    <section class="admin-content-head"><div><p class="eyebrow">BIBLIOTECA EDITORIAL</p><h2>Inspirações oficiais</h2></div><p>As alterações publicadas aparecem imediatamente na área de inspiração dos noivos.</p></section>
-    <section class="admin-inspiration-grid">${state.adminInspirations.length?state.adminInspirations.map(adminInspirationCard).join(''):'<div class="card empty-state"><strong>A biblioteca está vazia.</strong>Cria a primeira inspiração oficial.</div>'}</section>
-    <section class="card admin-security-note"><strong>${adminAccess.mode==='online'?'Conteúdos guardados online':'Segurança da versão final'}</strong><p>${adminAccess.mode==='online'?'As publicações e imagens estão ligadas à base de dados e protegidas por permissões de editor e administrador.':'O acesso por conta Google, as permissões por função e o histórico de alterações serão ativados com a base de dados. Neste preview, os dados ficam apenas neste navegador.'}</p></section>`;
+const adminMenuItems=[
+  ['overview','Visão geral','dashboard'],['sales','Vendas','budget'],['funnel','Funil e conversão','plan'],['free','Experiência gratuita','sparkles'],
+  ['abandonments','Abandonos','bell'],['plans','Planos e acessos','heart'],['content','Inspirações','sparkles'],['users','Utilizadores','guests'],
+  ['communications','Comunicação','memory'],['settings','Definições','more']
+];
+const adminSectionTitles={ overview:['CONTROLO DO NEGÓCIO','Visão geral'],sales:['RECEITA E ENCOMENDAS','Vendas'],funnel:['AQUISIÇÃO E CONVERSÃO','Funil'],free:['MODO DESCOBERTA','Experiência gratuita'],abandonments:['RECUPERAÇÃO','Abandonos'],plans:['PRODUTO E PERMISSÕES','Planos'],content:['GESTÃO EDITORIAL','Inspirações'],users:['CONTAS E CASAIS','Utilizadores'],communications:['AUTOMAÇÕES','Comunicação'],settings:['SISTEMA','Definições'] };
+
+function renderAdmin(section='overview') {
+  if (!adminSectionTitles[section]) section='overview';
+  let content;
+  if (adminAccess.mode==='online'&&!adminAccess.authenticated) content=`<section class="card admin-locked"><span class="account-mark">♡</span><p class="eyebrow">ÁREA PROTEGIDA</p><h2>Inicia sessão para aceder ao backoffice</h2><p>O painel de administração está reservado às contas autorizadas pela Cor Púrpura.</p><button class="button button-secondary" type="button" data-action="account">Entrar com Google ou e-mail</button></section>`;
+  else if (adminAccess.mode==='online'&&!adminAccess.allowed) content=`<section class="card admin-locked"><span class="account-mark">♡</span><p class="eyebrow">ACESSO RESTRITO</p><h2>Esta conta não tem permissões de administração</h2><p>Podes continuar a utilizar a Agenda da Noiva, mas não podes aceder aos dados do negócio.</p><button class="button button-ghost" type="button" data-nav="dashboard">Voltar à aplicação</button></section>`;
+  else content=renderAdminSection(section);
+  const [kicker,title]=adminSectionTitles[section];
+  return `<div class="admin-shell"><aside class="admin-sidebar"><div class="admin-brand"><span class="brand-script">Agenda<br>da Noiva</span><small>Administração</small></div><nav class="admin-nav">${adminMenuItems.map(([id,label,ico])=>`<button class="admin-nav-link ${section===id?'active':''}" type="button" data-admin-nav="${id}">${icon(ico)}<span>${label}</span></button>`).join('')}</nav><button class="admin-back" type="button" data-nav="dashboard">${icon('heart')}<span>Voltar à Agenda</span></button></aside><section class="admin-workspace"><header class="admin-topbar"><div><p>${kicker}</p><h1>${title}</h1></div><div class="admin-topbar-actions"><span class="admin-mode-chip">${adminAccess.mode==='online'?'Online':'Demonstração'}</span><span class="admin-user-chip"><span class="avatar">A</span>${adminAccess.role==='editor'?'Editor':'Administrador'}</span></div></header><main class="admin-main">${content}</main></section></div>`;
 }
+
+function renderAdminSection(section) {
+  const sections={overview:renderAdminOverview,sales:renderAdminSales,funnel:renderAdminFunnel,free:renderAdminFree,abandonments:renderAdminAbandonments,plans:renderAdminPlans,content:renderAdminContent,users:renderAdminUsers,communications:renderAdminCommunications,settings:renderAdminSettings};
+  return sections[section]();
+}
+
+function adminKpi(label,value,foot,tone='') { return `<article class="card admin-kpi ${tone}"><span>${label}</span><strong>${value}</strong><small>${foot}</small></article>`; }
+function renderAdminOverview() {
+  const published=state.adminInspirations.filter(item=>item.status==='published').length;
+  return `<section class="card admin-demo-banner"><div><p class="eyebrow">${adminAccess.mode==='online'?'LIGAÇÃO SEGURA ATIVA':'DADOS DE DEMONSTRAÇÃO'}</p><h2>O negócio num só lugar</h2><p>Acompanha aquisição, utilização gratuita, vendas e conteúdos sem entrar na aplicação dos noivos.</p></div><span class="admin-access-chip">${adminAccess.role==='editor'?'Editor':'Administrador'}</span></section><section class="admin-kpi-grid">${adminKpi('Receita','0 €','pagamentos ainda não ligados','accent')}${adminKpi('Vendas','0','nenhuma encomenda registada')}${adminKpi('Experiências gratuitas','0','modo Descoberta')}${adminKpi('Taxa de conversão','—','aguarda dados reais')}</section><section class="admin-overview-grid"><article class="card admin-panel"><div class="card-header"><div><h2>Funil principal</h2><p>Do primeiro contacto à compra.</p></div><button class="link-button" data-admin-nav="funnel">Ver funil →</button></div>${adminFunnelVisual()}</article><article class="card admin-panel"><div class="card-header"><div><h2>Estado da plataforma</h2><p>Preparação dos componentes comerciais.</p></div></div><ul class="admin-status-list"><li><span class="status publicado">Aplicação e dashboard</span><strong>Ativo</strong></li><li><span class="status publicado">Experiência gratuita</span><strong>Preparada</strong></li><li><span class="status pendente">Pagamentos</span><strong>Por configurar</strong></li><li><span class="status pendente">E-mails automáticos</span><strong>Por configurar</strong></li><li><span class="status publicado">Inspirações oficiais</span><strong>${published} publicadas</strong></li></ul></article></section><section class="admin-quick-grid"><button class="card admin-quick" data-admin-nav="free"><strong>Configurar experiência gratuita</strong><span>Limites, acesso e passagem para versão paga →</span></button><button class="card admin-quick" data-admin-nav="abandonments"><strong>Preparar recuperação de abandonos</strong><span>Checkout, configuração e registo incompletos →</span></button><button class="card admin-quick" data-admin-nav="content"><strong>Gerir inspirações</strong><span>Publicar conteúdo editorial →</span></button></section>`;
+}
+function adminFunnelVisual(){return `<div class="admin-funnel"><div><strong>0</strong><span>Landing</span></div><i>→</i><div><strong>0</strong><span>Experimentar</span></div><i>→</i><div><strong>0</strong><span>Dashboard</span></div><i>→</i><div><strong>0</strong><span>Checkout</span></div><i>→</i><div><strong>0</strong><span>Compra</span></div></div>`;}
+function renderAdminSales(){return `<section class="admin-kpi-grid">${adminKpi('Receita total','0 €','valor líquido por apurar','accent')}${adminKpi('Compras','0','Comercial + Premium')}${adminKpi('Ticket médio','—','sem vendas registadas')}${adminKpi('Reembolsos','0 €','nenhum pedido')}</section><section class="card admin-panel"><div class="card-header"><div><h2>Encomendas e pagamentos</h2><p>As vendas aparecerão aqui depois de o fornecedor de pagamentos ser ligado.</p></div><div class="filter-pills"><button class="pill active">Todas</button><button class="pill">Pagas</button><button class="pill">Pendentes</button><button class="pill">Reembolsadas</button></div></div><div class="empty-state"><strong>Ainda não existem vendas.</strong>O painel está preparado para referência, cliente, plano, valor, estado e data.</div></section>`;}
+function renderAdminFunnel(){return `<section class="card admin-panel"><div class="card-header"><div><h2>Do interesse à utilização</h2><p>Dois percursos medidos separadamente para não misturar intenções.</p></div></div>${adminFunnelVisual()}</section><section class="admin-flow-grid"><article class="card admin-flow-card"><span class="admin-flow-tag">INTENÇÃO ALTA</span><h3>Comprar diretamente</h3><ol><li>Landing page</li><li>Escolha da versão</li><li>Pagamento</li><li>Criação do casamento</li></ol><small>Evento final: <code>purchase_completed</code></small></article><article class="card admin-flow-card"><span class="admin-flow-tag">AINDA INDECISO</span><h3>Experimentar primeiro</h3><ol><li>Landing page</li><li>Configuração curta</li><li>Dashboard personalizado</li><li>Exploração e upgrade</li></ol><small>Evento de valor: <code>first_value_reached</code></small></article></section><section class="card admin-panel"><h2>Eventos a acompanhar</h2><div class="admin-event-grid">${['landing_view','pricing_view','discovery_started','setup_completed','first_value_reached','checkout_started','checkout_abandoned','purchase_completed'].map(event=>`<span>${event}</span>`).join('')}</div></section>`;}
+function renderAdminFree(){const settings=state.adminSettings;return `<section class="card admin-demo-banner"><div><p class="eyebrow">MODO DESCOBERTA</p><h2>Experimentar antes de comprar</h2><p>O casal utiliza dados reais, percebe o valor e mantém todo o trabalho quando faz upgrade.</p></div><span class="admin-access-chip">${settings.freeEnabled?'Ativo':'Inativo'}</span></section><form class="card admin-panel admin-settings-form" id="admin-free-form"><label class="admin-switch-row"><span><strong>Permitir experiência gratuita</strong><small>Sem cartão e sem prazo fixo.</small></span><input name="freeEnabled" type="checkbox" ${settings.freeEnabled?'checked':''}></label><div class="form-grid"><label class="field"><span>Tarefas disponíveis</span><input class="input" name="tasks" type="number" min="1" value="${settings.freeLimits.tasks}"></label><label class="field"><span>Convidados</span><input class="input" name="guests" type="number" min="1" value="${settings.freeLimits.guests}"></label><label class="field"><span>Fornecedores</span><input class="input" name="suppliers" type="number" min="1" value="${settings.freeLimits.suppliers}"></label><label class="field"><span>Inspirações próprias</span><input class="input" name="inspirations" type="number" min="1" value="${settings.freeLimits.inspirations}"></label></div><div class="admin-form-actions"><button class="button button-secondary" type="submit">Guardar limites</button></div></form><section class="admin-flow-grid"><article class="card admin-flow-card"><h3>Incluído gratuitamente</h3><ul><li>Dashboard personalizado</li><li>Contagem decrescente</li><li>Orçamento inicial</li><li>Dados guardados no dispositivo</li></ul></article><article class="card admin-flow-card"><h3>Motivos naturais para upgrade</h3><ul><li>Sincronizar entre dispositivos</li><li>Partilhar com o parceiro</li><li>Ultrapassar os limites</li><li>Exportar dossiers e documentos</li></ul></article></section>`;}
+function renderAdminAbandonments(){const s=state.adminSettings;return `<section class="admin-kpi-grid">${adminKpi('Checkout abandonado','0','últimos 30 dias')}${adminKpi('Configuração incompleta','0','sem dashboard criado')}${adminKpi('Free sem retorno','0','inativos há 7 dias')}${adminKpi('Recuperados','0','através de automações','accent')}</section><form class="card admin-panel admin-settings-form" id="admin-recovery-form"><label class="admin-switch-row"><span><strong>Ativar recuperação automática</strong><small>Só envia mensagens a quem deu consentimento.</small></span><input name="recoveryEnabled" type="checkbox" ${s.recoveryEnabled?'checked':''}></label><div class="form-grid"><label class="field"><span>Relembrar configuração após</span><select class="input" name="recoveryHours"><option value="12" ${s.recoveryHours===12?'selected':''}>12 horas</option><option value="24" ${s.recoveryHours===24?'selected':''}>24 horas</option><option value="48" ${s.recoveryHours===48?'selected':''}>48 horas</option></select></label><label class="field"><span>Relembrar checkout após</span><select class="input" name="checkoutReminderHours"><option value="1" ${s.checkoutReminderHours===1?'selected':''}>1 hora</option><option value="2" ${s.checkoutReminderHours===2?'selected':''}>2 horas</option><option value="24" ${s.checkoutReminderHours===24?'selected':''}>24 horas</option></select></label></div><div class="admin-form-actions"><button class="button button-secondary" type="submit">Guardar recuperação</button></div></form><section class="card admin-panel"><h2>Sequências previstas</h2><div class="admin-sequence-grid"><article><span>01</span><strong>Configuração interrompida</strong><small>Lembrar o benefício do dashboard personalizado.</small></article><article><span>02</span><strong>Checkout abandonado</strong><small>Retomar a versão escolhida sem repetir dados.</small></article><article><span>03</span><strong>Experiência sem retorno</strong><small>Mostrar o próximo passo mais útil.</small></article></div></section>`;}
+function renderAdminPlans(){return `<section class="admin-plan-grid"><article class="card admin-plan-card"><span>DESCOBERTA</span><h2>Gratuita</h2><p>Provar valor e personalizar o primeiro plano.</p><ul><li>Limites de utilização</li><li>Sem sincronização</li><li>Upgrade contextual</li></ul></article><article class="card admin-plan-card"><span>COMERCIAL</span><h2>Organização completa</h2><p>Todas as ferramentas essenciais para o casal.</p><ul><li>15 módulos</li><li>Registos completos</li><li>Partilha com parceiro</li></ul></article><article class="card admin-plan-card featured"><span>PREMIUM</span><h2>Automação</h2><p>Mais colaboração, inteligência e documentos.</p><ul><li>Automatizações</li><li>Colaboração alargada</li><li>Wedding Day Pack</li></ul></article></section><section class="card admin-panel"><h2>Funções internas</h2><div class="admin-role-grid"><article><strong>Casal</strong><span>Apenas a respetiva agenda.</span></article><article><strong>Editor</strong><span>Cria, edita e publica conteúdos.</span></article><article><strong>Administrador</strong><span>Controlo completo do negócio.</span></article></div></section>`;}
+function renderAdminContent(){const published=state.adminInspirations.filter(item=>item.status==='published').length;const drafts=state.adminInspirations.filter(item=>item.status==='draft').length;const archived=state.adminInspirations.filter(item=>item.status==='archived').length;return `${actionButtons([button('Ver área dos noivos','admin-preview','ghost','heart'),button('Nova inspiração oficial','add-admin-inspiration','secondary','plus')])}<section class="grid grid-3 admin-stats"><article class="card stat-card"><span class="stat-label">Publicadas</span><strong class="stat-value">${published}</strong><span class="stat-foot">visíveis na aplicação</span></article><article class="card stat-card"><span class="stat-label">Rascunhos</span><strong class="stat-value">${drafts}</strong><span class="stat-foot">a aguardar publicação</span></article><article class="card stat-card"><span class="stat-label">Arquivadas</span><strong class="stat-value">${archived}</strong><span class="stat-foot">fora da aplicação</span></article></section><section class="admin-content-head"><div><p class="eyebrow">BIBLIOTECA EDITORIAL</p><h2>Inspirações oficiais</h2></div><p>As alterações publicadas aparecem imediatamente na área dos noivos.</p></section><section class="admin-inspiration-grid">${state.adminInspirations.length?state.adminInspirations.map(adminInspirationCard).join(''):'<div class="card empty-state"><strong>A biblioteca está vazia.</strong>Cria a primeira inspiração oficial.</div>'}</section>`;}
+function renderAdminUsers(){return `<section class="admin-kpi-grid">${adminKpi('Contas','0','após ativar a base de dados')}${adminKpi('Descoberta','0','utilizadores gratuitos')}${adminKpi('Comercial','0','subscrições ativas')}${adminKpi('Premium','0','subscrições ativas')}</section><section class="card admin-panel"><div class="card-header"><div><h2>Casais e acessos</h2><p>Pesquisa, plano, estado, último acesso e data do casamento.</p></div><button class="button button-ghost button-small" disabled>Exportar lista</button></div><div class="empty-state"><strong>Sem utilizadores online.</strong>Os dados aparecerão quando a autenticação e a base de dados forem ativadas.</div></section>`;}
+function renderAdminCommunications(){return `<section class="admin-flow-grid"><article class="card admin-flow-card"><span class="admin-flow-tag">ONBOARDING</span><h3>Boas-vindas</h3><p>Ajuda o casal a concluir a configuração e chegar ao primeiro resultado.</p><small>Estado: por configurar</small></article><article class="card admin-flow-card"><span class="admin-flow-tag">CONVERSÃO</span><h3>Upgrade contextual</h3><p>Apresenta a versão certa quando surge uma necessidade concreta.</p><small>Estado: preparado</small></article><article class="card admin-flow-card"><span class="admin-flow-tag">RETENÇÃO</span><h3>Próximos passos</h3><p>Resumo semanal de tarefas, pagamentos e respostas pendentes.</p><small>Estado: por configurar</small></article><article class="card admin-flow-card"><span class="admin-flow-tag">RECUPERAÇÃO</span><h3>Abandono</h3><p>Retoma configuração ou checkout sem repetir informação.</p><small>Estado: por configurar</small></article></section>`;}
+function renderAdminSettings(){return `<section class="admin-overview-grid"><article class="card admin-panel"><h2>Infraestrutura</h2><ul class="admin-status-list"><li><span>Interface e GitHub Pages</span><strong>Ativo</strong></li><li><span>Supabase</span><strong>${adminAccess.mode==='online'?'Ligado':'Por configurar'}</strong></li><li><span>Login Google</span><strong>${adminAccess.mode==='online'?'Preparado':'A aguardar Supabase'}</strong></li><li><span>Pagamentos</span><strong>Por configurar</strong></li><li><span>Envio de e-mails</span><strong>Por configurar</strong></li></ul></article><article class="card admin-panel"><h2>Segurança</h2><ul class="admin-status-list"><li><span>Dados privados por casal</span><strong>RLS preparado</strong></li><li><span>Funções editor/admin</span><strong>Preparadas</strong></li><li><span>Imagens editoriais</span><strong>Storage preparado</strong></li><li><span>Eliminação RGPD</span><strong>Preparada</strong></li></ul></article></section><section class="card admin-security-note"><strong>Separação entre aplicação e administração</strong><p>O backoffice utiliza navegação própria e não depende do menu da agenda. O botão “Voltar à Agenda” é o único ponto de passagem entre os dois ambientes.</p></section>`;}
 
 function adminInspirationCard(item) {
   const statusLabel={ published:'Publicada', draft:'Rascunho', archived:'Arquivada' }[item.status]||'Rascunho';
@@ -612,7 +642,7 @@ function adminInspirationCard(item) {
 }
 
 function renderMore() {
-  return `<section class="module-grid">${navItems.filter(([id])=>['fornecedores','inspiracao','mesas','grande-dia','memorias','edicoes'].includes(id)).map(([id,label,ico])=>`<article class="card module-card" data-nav="${id}">${icon(ico)}<h3>${label}</h3><p>${id==='edicoes'?`Edição atual: ${state.plan==='premium'?'Premium':'Comercial'}.`:'Abrir esta área da agenda.'}</p></article>`).join('')}<article class="card module-card admin-entry-card" data-nav="admin">${icon('sparkles')}<h3>Administração — demo</h3><p>Gerir e publicar as inspirações oficiais.</p></article><article class="card module-card" data-action="account">${icon('guests')}<h3>Conta e sincronização</h3><p>Entrar, recuperar o acesso e editar os dados do casamento.</p></article><article class="card module-card" data-action="export-data">${icon('download')}<h3>Exportar dados</h3><p>Guardar uma cópia de segurança em JSON.</p></article><article class="card module-card" data-action="privacy">${icon('day')}<h3>Privacidade e dados</h3><p>Consultar, descarregar ou eliminar os teus dados.</p></article><article class="card module-card" data-action="reset-data">${icon('more')}<h3>Repor demonstração</h3><p>Voltar aos dados iniciais deste protótipo.</p></article></section>`;
+  return `<section class="module-grid">${navItems.filter(([id])=>['fornecedores','inspiracao','mesas','grande-dia','memorias','edicoes'].includes(id)).map(([id,label,ico])=>`<article class="card module-card" data-nav="${id}">${icon(ico)}<h3>${label}</h3><p>${id==='edicoes'?`Edição atual: ${state.plan==='premium'?'Premium':'Comercial'}.`:'Abrir esta área da agenda.'}</p></article>`).join('')}<article class="card module-card admin-entry-card" data-nav="admin">${icon('sparkles')}<h3>Administração — demo</h3><p>Abrir o backoffice autónomo do negócio.</p></article><article class="card module-card" data-action="account">${icon('guests')}<h3>Conta e sincronização</h3><p>Entrar, recuperar o acesso e editar os dados do casamento.</p></article><article class="card module-card" data-action="export-data">${icon('download')}<h3>Exportar dados</h3><p>Guardar uma cópia de segurança em JSON.</p></article><article class="card module-card" data-action="privacy">${icon('day')}<h3>Privacidade e dados</h3><p>Consultar, descarregar ou eliminar os teus dados.</p></article><article class="card module-card" data-action="reset-data">${icon('more')}<h3>Repor demonstração</h3><p>Voltar aos dados iniciais deste protótipo.</p></article></section>`;
 }
 
 function renderEditions() {
@@ -705,6 +735,7 @@ function toast(message){const t=$('#toast');t.textContent=message;t.classList.ad
 
 function bindViewEvents(){
   $$('[data-nav]').forEach(el=>el.addEventListener('click',()=>navigate(el.dataset.nav)));
+  $$('[data-admin-nav]').forEach(el=>el.addEventListener('click',()=>navigate(el.dataset.adminNav==='overview'?'admin':`admin/${el.dataset.adminNav}`)));
   $$('[data-nav][tabindex]').forEach(el=>el.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();navigate(el.dataset.nav)}}));
   $$('[data-action]').forEach(el=>el.addEventListener('click',()=>handleAction(el.dataset.action,el)));
   $$('[data-dashboard-jump]').forEach(el=>el.addEventListener('click',()=>{
@@ -774,9 +805,38 @@ function bindViewEvents(){
     const guest=state.guests.find(item=>item.id===Number(el.dataset.guestTableSelect));
     if(guest){guest.tableId=el.value?Number(el.value):null;saveState('Mesa atualizada.');}
   }));
+  $('#admin-free-form')?.addEventListener('submit',async event=>{
+    event.preventDefault();
+    const data=Object.fromEntries(new FormData(event.currentTarget));
+    state.adminSettings={
+      ...state.adminSettings,
+      freeEnabled:data.freeEnabled==='on',
+      freeLimits:{tasks:Number(data.tasks),guests:Number(data.guests),suppliers:Number(data.suppliers),inspirations:Number(data.inspirations)}
+    };
+    await persistAdminSettings('Limites da experiência gratuita guardados.');
+  });
+  $('#admin-recovery-form')?.addEventListener('submit',async event=>{
+    event.preventDefault();
+    const data=Object.fromEntries(new FormData(event.currentTarget));
+    state.adminSettings={...state.adminSettings,recoveryEnabled:data.recoveryEnabled==='on',recoveryHours:Number(data.recoveryHours),checkoutReminderHours:Number(data.checkoutReminderHours)};
+    await persistAdminSettings('Regras de recuperação guardadas.');
+  });
   $('#guest-search')?.addEventListener('input',e=>{guestSearch=e.target.value;render();setTimeout(()=>{$('#guest-search')?.focus();$('#guest-search')?.setSelectionRange(guestSearch.length,guestSearch.length)},0)});
   $$('.guest-chip').forEach(el=>el.addEventListener('dragstart',e=>e.dataTransfer.setData('text/plain',el.dataset.guestId)));
   $$('[data-drop-table]').forEach(zone=>{zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drag-over')});zone.addEventListener('dragleave',()=>zone.classList.remove('drag-over'));zone.addEventListener('drop',e=>{e.preventDefault();const g=state.guests.find(x=>x.id===Number(e.dataTransfer.getData('text/plain')));const tableId=zone.dataset.dropTable==='none'?null:Number(zone.dataset.dropTable);if(g){g.tableId=tableId;saveState('Mesa atualizada.')}})});
+}
+
+async function persistAdminSettings(message) {
+  if (adminAccess.mode==='online') {
+    if (adminAccess.role!=='admin') return toast('Apenas um administrador pode alterar estas definições.');
+    try {
+      await window.AgendaPlatform.saveAdminSettings(state.adminSettings);
+      toast(message);
+      render();
+    } catch (error) { toast(error.message||'Não foi possível guardar as definições.'); }
+    return;
+  }
+  saveState(message);
 }
 function handleAction(action,source){
   if(schemas[action]) return openModal(action);
@@ -896,9 +956,15 @@ window.AgendaApp = {
     try { localStorage.setItem('agenda-noiva-state',JSON.stringify(state)); } catch {}
     render();
   },
+  setAdminSettings(settings) {
+    if (!settings||typeof settings!=='object') return;
+    state.adminSettings={...structuredClone(DEFAULT_STATE.adminSettings),...settings,freeLimits:{...DEFAULT_STATE.adminSettings.freeLimits,...(settings.freeLimits||{})}};
+    try { localStorage.setItem('agenda-noiva-state',JSON.stringify(state)); } catch {}
+    if (route()==='admin'||route().startsWith('admin/')) render();
+  },
   setAdminAccess(access) {
     adminAccess={...adminAccess,...access};
-    if (route()==='admin') render();
+    if (route()==='admin'||route().startsWith('admin/')) render();
   },
   toast,
   render
