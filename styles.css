@@ -133,8 +133,13 @@ a { color: inherit; text-decoration: none; }
 .check-row input { width: 18px; height: 18px; accent-color: var(--plum); }
 .check-row.done .task-name { text-decoration: line-through; color: var(--muted); }
 .meta { color: var(--muted); font-size: .73rem; white-space: nowrap; }
-.kebab, .delete-button { border: 0; background: transparent; cursor: pointer; color: var(--muted); padding: 5px; }
+.kebab, .delete-button, .edit-button { border: 0; background: transparent; cursor: pointer; color: var(--muted); padding: 5px; }
 .delete-button:hover { color: var(--red); }
+.edit-button { display:inline-grid; place-items:center; border-radius:7px; }
+.edit-button:hover { color:var(--plum); background:var(--peach-soft); }
+.edit-button svg { width:16px; height:16px; }
+.row-actions, .card-actions { display:inline-flex; align-items:center; justify-content:flex-end; gap:3px; }
+.card-actions { width:100%; justify-content:space-between; margin-top:8px; }
 .alert-row { grid-template-columns: auto 1fr; }
 .alert-icon { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: var(--peach-soft); color: #b86f58; }
 
