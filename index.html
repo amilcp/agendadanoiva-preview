@@ -5,10 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#f8f3f0">
   <meta name="description" content="Wedding Planner digital da Cor Púrpura para organizar o casamento num só lugar.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'">
   <title>Agenda da Noiva — Cor Púrpura</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="styles.css">
+  <script defer src="config.js"></script>
   <script defer src="app.js"></script>
+  <script defer src="platform.js"></script>
 </head>
 <body>
   <div class="app-shell">
@@ -18,10 +21,10 @@
         <span class="brand-heart">♡</span>
       </a>
       <nav id="desktop-nav" class="nav-list"></nav>
-      <div class="profile-card">
-        <span class="avatar">A</span>
-        <span><strong>Olá, Ana!</strong><small>Ver perfil</small></span>
-      </div>
+      <button class="profile-card" id="account-trigger" type="button">
+        <span class="avatar" data-user-initial>A</span>
+        <span><strong data-user-greeting>Modo de teste</strong><small data-sync-label>Dados neste dispositivo</small></span>
+      </button>
     </aside>
 
     <section class="workspace">
@@ -32,9 +35,10 @@
           <h1 id="page-title"></h1>
         </div>
         <div class="topbar-actions">
+          <span class="sync-chip" id="sync-chip" aria-live="polite"><i></i><span>Local</span></span>
           <button class="icon-button" id="global-search" aria-label="Pesquisar"></button>
-          <button class="icon-button notification-button" aria-label="Notificações"><span class="notification-dot"></span></button>
-          <span class="avatar avatar-large">A</span>
+          <button class="icon-button notification-button" aria-label="Notificações"></button>
+          <button class="avatar avatar-large avatar-button" id="account-trigger-top" type="button" aria-label="Abrir conta" data-user-initial>A</button>
         </div>
       </header>
       <main id="view" tabindex="-1"></main>
@@ -55,6 +59,38 @@
         <button class="button button-primary" value="default" id="modal-submit">Guardar</button>
       </footer>
     </form>
+  </dialog>
+
+  <dialog id="account-modal" class="modal account-modal">
+    <div class="modal-card">
+      <header>
+        <div><p class="eyebrow">A MINHA CONTA</p><h2 id="account-title">Entrar na Agenda</h2></div>
+        <button class="icon-button dialog-close" type="button" aria-label="Fechar">×</button>
+      </header>
+      <div class="account-content" id="account-content"></div>
+    </div>
+  </dialog>
+
+  <dialog id="privacy-modal" class="modal privacy-modal">
+    <div class="modal-card">
+      <header>
+        <div><p class="eyebrow">PRIVACIDADE E DADOS</p><h2>Controlo dos teus dados</h2></div>
+        <button class="icon-button dialog-close" type="button" aria-label="Fechar">×</button>
+      </header>
+      <div class="account-content privacy-content">
+        <p>A Agenda da Noiva guarda apenas os dados necessários para organizar o casamento. Sem uma conta, os dados permanecem neste navegador. Com uma conta, são sincronizados de forma privada entre os teus dispositivos.</p>
+        <div class="privacy-grid">
+          <article><strong>Acesso e portabilidade</strong><span>Podes descarregar uma cópia integral em formato JSON.</span></article>
+          <article><strong>Recuperação</strong><span>As alterações online mantêm versões de segurança para recuperação.</span></article>
+          <article><strong>Eliminação</strong><span>Podes eliminar a conta e todos os dados associados.</span></article>
+          <article><strong>Sem publicidade</strong><span>Não existem cookies publicitários nem venda de dados.</span></article>
+        </div>
+        <div class="danger-zone">
+          <div><strong>Eliminar dados</strong><p id="delete-data-copy">Remove os dados guardados neste dispositivo.</p></div>
+          <button class="button button-danger" id="delete-data" type="button">Eliminar os meus dados</button>
+        </div>
+      </div>
+    </div>
   </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
