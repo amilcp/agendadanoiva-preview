@@ -30,6 +30,7 @@
   const plannerPayload = value => {
     const payload = structuredClone(value || {});
     delete payload.adminInspirations;
+    delete payload.adminSettings;
     return payload;
   };
 
@@ -120,6 +121,7 @@
     setSyncStatus('pending', 'A sincronizar…');
     if (pull) await pullRemoteState();
     await loadOfficialInspirations();
+    if (adminAllowed) await loadAdminSettings();
     const returnRoute=sessionStorage.getItem('agenda-auth-return');
     if (returnRoute) { sessionStorage.removeItem('agenda-auth-return');location.hash=returnRoute; }
     renderAccount();
@@ -162,6 +164,24 @@
     if (error) throw error;
     if (item.storagePath) await client.storage.from('inspiration-media').remove([item.storagePath]);
     await loadOfficialInspirations();
+  }
+
+  async function loadAdminSettings() {
+    if (!client||!currentUser||!['editor','admin'].includes(currentRole)) return;
+    const { data, error }=await client.from('admin_settings').select('value').eq('id','commercial_flows').maybeSingle();
+    if (error) {
+      app()?.toast(errorMessage(error));
+      return;
+    }
+    if (data?.value) app()?.setAdminSettings(data.value);
+  }
+
+  async function saveAdminSettings(settings) {
+    if (!client||!currentUser||currentRole!=='admin') throw new Error('Apenas um administrador pode alterar estas definições.');
+    const row={id:'commercial_flows',value:settings,updated_by:currentUser.id,updated_at:new Date().toISOString()};
+    const { error }=await client.from('admin_settings').upsert(row,{onConflict:'id'});
+    if (error) throw error;
+    await loadAdminSettings();
   }
 
   async function pullRemoteState() {
@@ -377,6 +397,6 @@
     });
   }
 
-  window.AgendaPlatform = { scheduleSync, openAccount, openPrivacy, syncNow: pullRemoteState, saveOfficialInspiration, deleteOfficialInspiration, reloadOfficialInspirations:loadOfficialInspirations, isConfigured: configured, isAdmin:()=>['editor','admin'].includes(currentRole) };
+  window.AgendaPlatform = { scheduleSync, openAccount, openPrivacy, syncNow: pullRemoteState, saveOfficialInspiration, deleteOfficialInspiration, reloadOfficialInspirations:loadOfficialInspirations, saveAdminSettings, reloadAdminSettings:loadAdminSettings, isConfigured: configured, isAdmin:()=>['editor','admin'].includes(currentRole) };
   init();
 })();
