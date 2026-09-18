@@ -89,6 +89,12 @@ const DEFAULT_STATE = {
   ],
   memory: '',
   memoryEntries: [],
+  contacts: [
+    { id:1, name:'Ana Silva', email:'ana@example.com', phone:'+351 910 000 001', role:'noiva', couple:'Ana & Pedro', source:'conta', platformConsent:'aceite', marketingConsent:'aceite', tags:'casamento 2027, Viseu', createdAt:'2026-09-10T10:00:00.000Z' },
+    { id:2, name:'Pedro Costa', email:'pedro@example.com', phone:'+351 910 000 002', role:'noivo', couple:'Ana & Pedro', source:'conta', platformConsent:'aceite', marketingConsent:'aceite', tags:'casamento 2027, Viseu', createdAt:'2026-09-10T10:05:00.000Z' },
+    { id:3, name:'Rita Costa', email:'rita@example.com', phone:'+351 910 000 003', role:'madrinha', couple:'Ana & Pedro', source:'convite', platformConsent:'aceite', marketingConsent:'nao_aceite', tags:'madrinha', createdAt:'2026-09-12T15:30:00.000Z' },
+    { id:4, name:'Tiago Lima', email:'tiago@example.com', phone:'', role:'convidado', couple:'Ana & Pedro', source:'formulario', platformConsent:'aceite', marketingConsent:'nao_aceite', tags:'amigos', createdAt:'2026-09-14T18:15:00.000Z' },
+  ],
   inspirationFavorites: [],
   inspirationNotes: {},
   customInspirations: [],
@@ -150,12 +156,22 @@ let state = loadState();
 let guestFilter = 'todos';
 let guestSearch = '';
 let inspirationFilter = 'todos';
+let adminContactSearch = '';
+let adminContactFilter = 'todos';
 let adminAccess = { mode:'demo', authenticated:false, allowed:true, role:'demo' };
 
 function normaliseState(saved = {}) {
     const next = { ...structuredClone(DEFAULT_STATE), ...(saved && typeof saved === 'object' ? saved : {}) };
-    ['tasks','expenses','guests','suppliers','tables','timeline','customInspirations'].forEach(key => {
+    ['tasks','expenses','guests','suppliers','tables','timeline','customInspirations','contacts'].forEach(key => {
       if (!Array.isArray(next[key])) next[key] = structuredClone(DEFAULT_STATE[key]);
+    });
+    const seenEmails=new Set(),seenPhones=new Set(),seenFallbacks=new Set();
+    next.contacts=next.contacts.filter(item=>item&&typeof item.name==='string').map((item,index)=>({
+      id:Number(item.id)||index+1,name:item.name.trim(),email:String(item.email||'').trim().toLowerCase(),phone:String(item.phone||'').trim(),role:item.role||'lead',couple:String(item.couple||''),source:item.source||'manual',platformConsent:item.platformConsent==='aceite'?'aceite':'nao_aceite',marketingConsent:item.marketingConsent==='aceite'?'aceite':'nao_aceite',tags:String(item.tags||''),createdAt:item.createdAt||new Date().toISOString()
+    })).filter(item=>{
+      const email=item.email.toLowerCase(); const phone=item.phone.replace(/\D/g,''); const fallback=`${item.name.toLowerCase()}|${item.role}|${item.couple.toLowerCase()}`;
+      if((email&&seenEmails.has(email))||(phone&&seenPhones.has(phone))||(!email&&!phone&&seenFallbacks.has(fallback))) return false;
+      if(email) seenEmails.add(email); if(phone) seenPhones.add(phone); seenFallbacks.add(fallback); return true;
     });
     if (!next.couple || typeof next.couple !== 'object' || Array.isArray(next.couple)) next.couple = structuredClone(DEFAULT_STATE.couple);
     if (!Array.isArray(next.inspirationFavorites)) next.inspirationFavorites = [];
@@ -302,7 +318,7 @@ function render() {
 
 function actionButtons(buttons) { return `<div class="page-actions">${buttons.join('')}</div>`; }
 function button(label, action, style='primary', ico='plus') { return `<button class="button button-${style}" data-action="${action}">${icon(ico)} ${label}</button>`; }
-function statusLabel(value) { return value === 'avaliacao' ? 'Em avaliação' : value === 'pendente' ? 'Pendente' : value === 'recusado' ? 'Recusado' : value === 'curso' ? 'Em curso' : value === 'concluida' ? 'Concluída' : value[0].toUpperCase()+value.slice(1); }
+function statusLabel(value) { const labels={avaliacao:'Em avaliação',pendente:'Pendente',recusado:'Recusado',curso:'Em curso',concluida:'Concluída',nao_aceite:'Não aceite',aceite:'Aceite',formulario:'Formulário'}; return labels[value]||value[0].toUpperCase()+value.slice(1); }
 
 function renderDashboard() {
   const totals = expenseTotals(), guests = guestCounts();
@@ -654,10 +670,10 @@ async function persistAdminChange(item,message) {
 
 const adminMenuItems=[
   ['overview','Visão geral','dashboard'],['sales','Vendas','budget'],['funnel','Funil e conversão','plan'],['free','Experiência gratuita','sparkles'],
-  ['abandonments','Abandonos','bell'],['plans','Planos e acessos','heart'],['content','Inspirações','sparkles'],['users','Utilizadores','guests'],
+  ['abandonments','Abandonos','bell'],['plans','Planos e acessos','heart'],['database','Base de dados','memory'],['content','Inspirações','sparkles'],['users','Utilizadores','guests'],
   ['communications','Comunicação','memory'],['settings','Definições','more']
 ];
-const adminSectionTitles={ overview:['CONTROLO DO NEGÓCIO','Visão geral'],sales:['RECEITA E ENCOMENDAS','Vendas'],funnel:['AQUISIÇÃO E CONVERSÃO','Funil'],free:['MODO DESCOBERTA','Experiência gratuita'],abandonments:['RECUPERAÇÃO','Abandonos'],plans:['PRODUTO E PERMISSÕES','Planos'],content:['GESTÃO EDITORIAL','Inspirações'],users:['CONTAS E CASAIS','Utilizadores'],communications:['AUTOMAÇÕES','Comunicação'],settings:['SISTEMA','Definições'] };
+const adminSectionTitles={ overview:['CONTROLO DO NEGÓCIO','Visão geral'],sales:['RECEITA E ENCOMENDAS','Vendas'],funnel:['AQUISIÇÃO E CONVERSÃO','Funil'],free:['MODO DESCOBERTA','Experiência gratuita'],abandonments:['RECUPERAÇÃO','Abandonos'],plans:['PRODUTO E PERMISSÕES','Planos'],database:['CONTACTOS E CONSENTIMENTOS','Base de dados'],content:['GESTÃO EDITORIAL','Inspirações'],users:['CONTAS E CASAIS','Utilizadores'],communications:['AUTOMAÇÕES','Comunicação'],settings:['SISTEMA','Definições'] };
 
 function renderAdmin(section='overview') {
   if (!adminSectionTitles[section]) section='overview';
@@ -670,7 +686,7 @@ function renderAdmin(section='overview') {
 }
 
 function renderAdminSection(section) {
-  const sections={overview:renderAdminOverview,sales:renderAdminSales,funnel:renderAdminFunnel,free:renderAdminFree,abandonments:renderAdminAbandonments,plans:renderAdminPlans,content:renderAdminContent,users:renderAdminUsers,communications:renderAdminCommunications,settings:renderAdminSettings};
+  const sections={overview:renderAdminOverview,sales:renderAdminSales,funnel:renderAdminFunnel,free:renderAdminFree,abandonments:renderAdminAbandonments,plans:renderAdminPlans,database:renderAdminDatabase,content:renderAdminContent,users:renderAdminUsers,communications:renderAdminCommunications,settings:renderAdminSettings};
   return sections[section]();
 }
 
@@ -685,6 +701,21 @@ function renderAdminFunnel(){return `<section class="card admin-panel"><div clas
 function renderAdminFree(){const settings=state.adminSettings;return `<section class="card admin-demo-banner"><div><p class="eyebrow">MODO DESCOBERTA</p><h2>Experimentar antes de comprar</h2><p>O casal utiliza dados reais, percebe o valor e mantém todo o trabalho quando faz upgrade.</p></div><span class="admin-access-chip">${settings.freeEnabled?'Ativo':'Inativo'}</span></section><form class="card admin-panel admin-settings-form" id="admin-free-form"><label class="admin-switch-row"><span><strong>Permitir experiência gratuita</strong><small>Sem cartão e sem prazo fixo.</small></span><input name="freeEnabled" type="checkbox" ${settings.freeEnabled?'checked':''}></label><div class="form-grid"><label class="field"><span>Tarefas disponíveis</span><input class="input" name="tasks" type="number" min="1" value="${settings.freeLimits.tasks}"></label><label class="field"><span>Convidados</span><input class="input" name="guests" type="number" min="1" value="${settings.freeLimits.guests}"></label><label class="field"><span>Fornecedores</span><input class="input" name="suppliers" type="number" min="1" value="${settings.freeLimits.suppliers}"></label><label class="field"><span>Inspirações próprias</span><input class="input" name="inspirations" type="number" min="1" value="${settings.freeLimits.inspirations}"></label></div><div class="admin-form-actions"><button class="button button-secondary" type="submit">Guardar limites</button></div></form><section class="admin-flow-grid"><article class="card admin-flow-card"><h3>Incluído gratuitamente</h3><ul><li>Dashboard personalizado</li><li>Contagem decrescente</li><li>Orçamento inicial</li><li>Dados guardados no dispositivo</li></ul></article><article class="card admin-flow-card"><h3>Motivos naturais para upgrade</h3><ul><li>Sincronizar entre dispositivos</li><li>Partilhar com o parceiro</li><li>Ultrapassar os limites</li><li>Exportar dossiers e documentos</li></ul></article></section>`;}
 function renderAdminAbandonments(){const s=state.adminSettings;return `<section class="admin-kpi-grid">${adminKpi('Checkout abandonado','0','últimos 30 dias')}${adminKpi('Configuração incompleta','0','sem dashboard criado')}${adminKpi('Free sem retorno','0','inativos há 7 dias')}${adminKpi('Recuperados','0','através de automações','accent')}</section><form class="card admin-panel admin-settings-form" id="admin-recovery-form"><label class="admin-switch-row"><span><strong>Ativar recuperação automática</strong><small>Só envia mensagens a quem deu consentimento.</small></span><input name="recoveryEnabled" type="checkbox" ${s.recoveryEnabled?'checked':''}></label><div class="form-grid"><label class="field"><span>Relembrar configuração após</span><select class="input" name="recoveryHours"><option value="12" ${s.recoveryHours===12?'selected':''}>12 horas</option><option value="24" ${s.recoveryHours===24?'selected':''}>24 horas</option><option value="48" ${s.recoveryHours===48?'selected':''}>48 horas</option></select></label><label class="field"><span>Relembrar checkout após</span><select class="input" name="checkoutReminderHours"><option value="1" ${s.checkoutReminderHours===1?'selected':''}>1 hora</option><option value="2" ${s.checkoutReminderHours===2?'selected':''}>2 horas</option><option value="24" ${s.checkoutReminderHours===24?'selected':''}>24 horas</option></select></label></div><div class="admin-form-actions"><button class="button button-secondary" type="submit">Guardar recuperação</button></div></form><section class="card admin-panel"><h2>Sequências previstas</h2><div class="admin-sequence-grid"><article><span>01</span><strong>Configuração interrompida</strong><small>Lembrar o benefício do dashboard personalizado.</small></article><article><span>02</span><strong>Checkout abandonado</strong><small>Retomar a versão escolhida sem repetir dados.</small></article><article><span>03</span><strong>Experiência sem retorno</strong><small>Mostrar o próximo passo mais útil.</small></article></div></section>`;}
 function renderAdminPlans(){return `<section class="admin-plan-grid"><article class="card admin-plan-card"><span>DESCOBERTA</span><h2>Gratuita</h2><p>Provar valor e personalizar o primeiro plano.</p><ul><li>Limites de utilização</li><li>Sem sincronização</li><li>Upgrade contextual</li></ul></article><article class="card admin-plan-card"><span>COMERCIAL</span><h2>Organização completa</h2><p>Todas as ferramentas essenciais para o casal.</p><ul><li>15 módulos</li><li>Registos completos</li><li>Partilha com parceiro</li></ul></article><article class="card admin-plan-card featured"><span>PREMIUM</span><h2>Automação</h2><p>Mais colaboração, inteligência e documentos.</p><ul><li>Automatizações</li><li>Colaboração alargada</li><li>Wedding Day Pack</li></ul></article></section><section class="card admin-panel"><h2>Funções internas</h2><div class="admin-role-grid"><article><strong>Casal</strong><span>Apenas a respetiva agenda.</span></article><article><strong>Editor</strong><span>Cria, edita e publica conteúdos.</span></article><article><strong>Administrador</strong><span>Controlo completo do negócio.</span></article></div></section>`;}
+function renderAdminDatabase(){
+  const roleLabels={noiva:'Noiva',noivo:'Noivo',madrinha:'Madrinha',padrinho:'Padrinho',convidado:'Convidado',lead:'Lead',cliente:'Cliente',fornecedor:'Fornecedor'};
+  const sourceLabels={conta:'Conta',landing:'Landing page',convite:'Convite',formulario:'Formulário',manual:'Manual'};
+  const query=adminContactSearch.trim().toLowerCase();
+  const contacts=state.contacts.filter(item=>(adminContactFilter==='todos'||item.role===adminContactFilter)&&(!query||[item.name,item.email,item.phone,item.couple,item.tags].some(value=>String(value||'').toLowerCase().includes(query))));
+  const marketing=state.contacts.filter(item=>item.marketingConsent==='aceite').length;
+  const roles=new Set(state.contacts.map(item=>item.role)).size;
+  return `${actionButtons([button('Exportar consentidos','export-marketing-contacts','ghost','download'),button('Adicionar contacto','add-contact','secondary','plus')])}
+    <section class="admin-kpi-grid">${adminKpi('Contactos únicos',state.contacts.length,'sem duplicação por e-mail ou telefone','accent')}${adminKpi('Marketing autorizado',marketing,'disponíveis para campanhas')}${adminKpi('Apenas utilização',state.contacts.length-marketing,'não incluir em campanhas')}${adminKpi('Perfis',roles,'tipos de contacto registados')}</section>
+    <section class="card admin-panel admin-consent-note"><strong>Consentimentos separados</strong><p>A aceitação dos termos e da recolha necessária para utilizar a aplicação é obrigatória. O consentimento para campanhas de marketing é registado separadamente e pode ser retirado.</p></section>
+    <section class="card admin-panel admin-database-panel"><div class="card-header"><div><h2>Contactos captados</h2><p>Noivos, noivas, madrinhas, padrinhos, convidados e outros contactos da plataforma.</p></div></div>
+      <div class="admin-contact-toolbar"><div class="searchbox"><input id="admin-contact-search" value="${h(adminContactSearch)}" placeholder="Pesquisar nome, e-mail ou telefone…" aria-label="Pesquisar contactos"></div><label class="admin-contact-type"><span>Tipo de contacto</span><select class="select" id="admin-contact-filter"><option value="todos">Todos os contactos</option>${Object.entries(roleLabels).map(([value,label])=>`<option value="${value}" ${adminContactFilter===value?'selected':''}>${label}</option>`).join('')}</select></label></div>
+      <div class="table-wrap"><table class="admin-contact-table"><thead><tr><th>Contacto</th><th>Tipo</th><th>Casamento</th><th>Origem</th><th>Uso da app</th><th>Marketing</th><th>Etiquetas</th><th></th></tr></thead><tbody>${contacts.length?contacts.map(item=>`<tr><td><strong>${h(item.name)}</strong><small>${h(item.email||'Sem e-mail')} · ${h(item.phone||'Sem telefone')}</small></td><td>${roleLabels[item.role]||h(item.role)}</td><td>${h(item.couple||'—')}</td><td>${sourceLabels[item.source]||h(item.source)}</td><td><span class="admin-consent ${item.platformConsent}">${item.platformConsent==='aceite'?'Aceite':'Não aceite'}</span></td><td><span class="admin-consent ${item.marketingConsent}">${item.marketingConsent==='aceite'?'Autorizado':'Não autorizado'}</span></td><td>${h(item.tags||'—')}</td><td><span class="row-actions">${editButton('contact',item.id,item.name)}<button class="delete-button" type="button" data-delete="contact:${item.id}" aria-label="Eliminar ${h(item.name)}">×</button></span></td></tr>`).join(''):'<tr><td colspan="8"><div class="empty-state"><strong>Sem contactos para este filtro.</strong>Altera o tipo de contacto ou a pesquisa.</div></td></tr>'}</tbody></table></div>
+    </section>`;
+}
 function renderAdminContent(){const published=state.adminInspirations.filter(item=>item.status==='published').length;const drafts=state.adminInspirations.filter(item=>item.status==='draft').length;const archived=state.adminInspirations.filter(item=>item.status==='archived').length;return `${actionButtons([button('Ver área dos noivos','admin-preview','ghost','heart'),button('Nova inspiração oficial','add-admin-inspiration','secondary','plus')])}<section class="grid grid-3 admin-stats"><article class="card stat-card"><span class="stat-label">Publicadas</span><strong class="stat-value">${published}</strong><span class="stat-foot">visíveis na aplicação</span></article><article class="card stat-card"><span class="stat-label">Rascunhos</span><strong class="stat-value">${drafts}</strong><span class="stat-foot">a aguardar publicação</span></article><article class="card stat-card"><span class="stat-label">Arquivadas</span><strong class="stat-value">${archived}</strong><span class="stat-foot">fora da aplicação</span></article></section><section class="admin-content-head"><div><p class="eyebrow">BIBLIOTECA EDITORIAL</p><h2>Inspirações oficiais</h2></div><p>As alterações publicadas aparecem imediatamente na área dos noivos.</p></section><section class="admin-inspiration-grid">${state.adminInspirations.length?state.adminInspirations.map(adminInspirationCard).join(''):'<div class="card empty-state"><strong>A biblioteca está vazia.</strong>Cria a primeira inspiração oficial.</div>'}</section>`;}
 function renderAdminUsers(){return `<section class="admin-kpi-grid">${adminKpi('Contas','0','após ativar a base de dados')}${adminKpi('Descoberta','0','utilizadores gratuitos')}${adminKpi('Comercial','0','subscrições ativas')}${adminKpi('Premium','0','subscrições ativas')}</section><section class="card admin-panel"><div class="card-header"><div><h2>Casais e acessos</h2><p>Pesquisa, plano, estado, último acesso e data do casamento.</p></div><button class="button button-ghost button-small" disabled>Exportar lista</button></div><div class="empty-state"><strong>Sem utilizadores online.</strong>Os dados aparecerão quando a autenticação e a base de dados forem ativadas.</div></section>`;}
 function renderAdminCommunications(){return `<section class="admin-flow-grid"><article class="card admin-flow-card"><span class="admin-flow-tag">ONBOARDING</span><h3>Boas-vindas</h3><p>Ajuda o casal a concluir a configuração e chegar ao primeiro resultado.</p><small>Estado: por configurar</small></article><article class="card admin-flow-card"><span class="admin-flow-tag">CONVERSÃO</span><h3>Upgrade contextual</h3><p>Apresenta a versão certa quando surge uma necessidade concreta.</p><small>Estado: preparado</small></article><article class="card admin-flow-card"><span class="admin-flow-tag">RETENÇÃO</span><h3>Próximos passos</h3><p>Resumo semanal de tarefas, pagamentos e respostas pendentes.</p><small>Estado: por configurar</small></article><article class="card admin-flow-card"><span class="admin-flow-tag">RECUPERAÇÃO</span><h3>Abandono</h3><p>Retoma configuração ou checkout sem repetir informação.</p><small>Estado: por configurar</small></article></section>`;}
@@ -726,7 +757,7 @@ function editionCard(id,name,subtitle,features){
 }
 
 const modal = $('#modal');
-const entityCollections = { task: 'tasks', expense: 'expenses', guest: 'guests', supplier: 'suppliers', table: 'tables', timeline: 'timeline' };
+const entityCollections = { task: 'tasks', expense: 'expenses', guest: 'guests', supplier: 'suppliers', table: 'tables', timeline: 'timeline', contact:'contacts' };
 const schemas = {
   'add-task': ['Nova tarefa','task',[['title','Tarefa','text',true],['due','Prazo','date',true],['status','Estado','select:pendente|curso|concluida|atrasada',true]]],
   'add-expense': ['Nova despesa','expense',[['category','Categoria','text',true],['supplier','Fornecedor','text',true],['total','Valor total','number',true],['paid','Valor pago','number',true],['due','Vencimento','date',true]]],
@@ -735,6 +766,7 @@ const schemas = {
   'add-table': ['Adicionar mesa','table',[['name','Nome da mesa','text',true],['capacity','Capacidade','number',true]]],
   'add-timeline': ['Adicionar momento','timeline',[['time','Hora','time',true],['title','Momento','text',true],['location','Local','text',false]]],
   'add-decision': ['Adicionar decisão','decision',[['title','Decisão','text',true]]],
+  'add-contact': ['Adicionar contacto','contact',[['name','Nome','text',true],['email','E-mail','email',false],['phone','Telefone','tel',false],['role','Tipo de contacto','select:noiva|noivo|madrinha|padrinho|convidado|lead|cliente|fornecedor',true],['couple','Casamento / casal','text',false],['source','Origem','select:conta|landing|convite|formulario|manual',true],['platformConsent','Consentimento para usar a app','select:aceite|nao_aceite',true],['marketingConsent','Consentimento para marketing','select:nao_aceite|aceite',true],['tags','Etiquetas de segmentação','text',false]]],
 };
 function openModal(action, item = null) {
   const [title,entity,fields]=schemas[action];
@@ -797,6 +829,15 @@ function saveModal(form) {
   if(entity==='supplier') record={service:data.service,name:data.name,status:data.status,contact:data.contact};
   if(entity==='table') record={name:data.name,capacity:Number(data.capacity)};
   if(entity==='timeline') record={time:data.time,title:data.title,location:data.location};
+  if(entity==='contact') {
+    const email=String(data.email||'').trim().toLowerCase();
+    const phone=String(data.phone||'').trim();
+    if(!email&&!phone) return toast('Indica pelo menos um e-mail ou telefone.');
+    const phoneKey=phone.replace(/\D/g,'');
+    const duplicate=state.contacts.find(item=>item.id!==itemId&&((email&&item.email.toLowerCase()===email)||(phoneKey&&item.phone.replace(/\D/g,'')===phoneKey)));
+    if(duplicate) return toast(`Este contacto já existe: ${duplicate.name}.`);
+    record={name:String(data.name).trim(),email,phone,role:data.role,couple:String(data.couple||'').trim(),source:data.source,platformConsent:data.platformConsent,marketingConsent:data.marketingConsent,tags:String(data.tags||'').trim(),createdAt:existing?.createdAt||new Date().toISOString()};
+  }
   if(existing) Object.assign(existing,record);
   else state[collection].push({id:nextId(state[collection]),...record});
   closeModal();
@@ -811,14 +852,23 @@ function closeModal() {
 }
 
 function deleteItem(type,id) {
-  const map={task:'tasks',expense:'expenses',guest:'guests',supplier:'suppliers',table:'tables',timeline:'timeline'};
+  const map={task:'tasks',expense:'expenses',guest:'guests',supplier:'suppliers',table:'tables',timeline:'timeline',contact:'contacts'};
   const key=map[type]; if(!key) return;
+  if(type==='contact'&&!confirm('Eliminar definitivamente este contacto da base de dados?')) return;
   if(type==='table') state.guests.forEach(g=>{if(g.tableId===id)g.tableId=null});
   state[key]=state[key].filter(x=>x.id!==id); saveState('Registo eliminado.');
 }
 function exportData(){
   const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a');
   a.href=url;a.download='agenda-da-noiva-dados.json';a.click();URL.revokeObjectURL(url);toast('Cópia de segurança exportada.');
+}
+function exportMarketingContacts(){
+  const contacts=state.contacts.filter(item=>item.marketingConsent==='aceite');
+  if(!contacts.length) return toast('Não existem contactos com autorização de marketing.');
+  const columns=[['Nome','name'],['E-mail','email'],['Telefone','phone'],['Tipo','role'],['Casamento','couple'],['Origem','source'],['Etiquetas','tags']];
+  const csv=[columns.map(([label])=>label),...contacts.map(item=>columns.map(([,key])=>item[key]||''))].map(row=>row.map(value=>`"${String(value).replace(/"/g,'""')}"`).join(';')).join('\n');
+  const blob=new Blob([`\ufeff${csv}`],{type:'text/csv;charset=utf-8'}); const url=URL.createObjectURL(blob); const a=document.createElement('a');
+  a.href=url;a.download='contactos-marketing-autorizados.csv';a.click();URL.revokeObjectURL(url);toast('Contactos autorizados exportados.');
 }
 function importData(file){
   if(file.size>2_000_000) return toast('O ficheiro excede o limite de 2 MB.');
@@ -971,6 +1021,8 @@ function bindViewEvents(){
     await persistAdminSettings('Regras de recuperação guardadas.');
   });
   $('#guest-search')?.addEventListener('input',e=>{guestSearch=e.target.value;render();setTimeout(()=>{$('#guest-search')?.focus();$('#guest-search')?.setSelectionRange(guestSearch.length,guestSearch.length)},0)});
+  $('#admin-contact-search')?.addEventListener('input',e=>{adminContactSearch=e.target.value;render();setTimeout(()=>{$('#admin-contact-search')?.focus();$('#admin-contact-search')?.setSelectionRange(adminContactSearch.length,adminContactSearch.length)},0)});
+  $('#admin-contact-filter')?.addEventListener('change',e=>{adminContactFilter=e.target.value;render();});
   $$('.guest-chip').forEach(el=>el.addEventListener('dragstart',e=>e.dataTransfer.setData('text/plain',el.dataset.guestId)));
   $$('[data-drop-table]').forEach(zone=>{zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drag-over')});zone.addEventListener('dragleave',()=>zone.classList.remove('drag-over'));zone.addEventListener('drop',e=>{e.preventDefault();const g=state.guests.find(x=>x.id===Number(e.dataTransfer.getData('text/plain')));const tableId=zone.dataset.dropTable==='none'?null:Number(zone.dataset.dropTable);if(g){g.tableId=tableId;saveState('Mesa atualizada.')}})});
 }
@@ -997,6 +1049,7 @@ function handleAction(action,source){
     return saveState(`Edição ${state.plan==='premium'?'Premium':'Comercial'} ativa para teste.`);
   }
   if(action==='export-data') return exportData();
+  if(action==='export-marketing-contacts') return exportMarketingContacts();
   if(action==='import-data') return $('#import-file').click();
   if(action==='account') return window.AgendaPlatform?.openAccount?.();
   if(action==='privacy') return window.AgendaPlatform?.openPrivacy?.();
