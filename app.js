@@ -413,7 +413,7 @@ function renderModuleDetail(number) {
       </div>
       <div class="stack">
         <aside class="card conversation-card">
-          <div class="conversation-prompt"><p class="eyebrow">CONVERSA A DOIS</p><h3>Histórico do casal</h3><span>Pergunta para começarem</span><blockquote>${guide.question}</blockquote></div>
+          <div class="conversation-prompt"><p class="eyebrow">CONVERSA A DOIS</p><blockquote>${guide.question}</blockquote></div>
           <div class="conversation-history">${conversation.length?conversation.map(conversationEntry).join(''):'<p class="conversation-empty">Ainda não existem mensagens. Comecem por responder à pergunta acima.</p>'}</div>
           <form class="conversation-form" data-module-conversation-form="${number}"><textarea class="textarea conversation-input" name="message" placeholder="Escreve uma mensagem para o teu par…" required></textarea><div class="conversation-actions"><small>A escrever como ${h(currentPartnerName())}</small><button class="button button-primary button-small" type="submit">Enviar</button></div></form>
         </aside>
