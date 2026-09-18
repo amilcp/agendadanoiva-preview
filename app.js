@@ -172,7 +172,16 @@ function normaliseState(saved = {}) {
       const decisions=Array.isArray(savedWork.decisions)
         ? savedWork.decisions.filter(item=>item&&typeof item.text==='string').map((item,index)=>({id:String(item.id||`decision-${number}-${index+1}`),text:item.text,done:Boolean(item.done)}))
         : items.map((text,index)=>({id:`decision-${number}-${index+1}`,text,done:legacyCompleted.includes(text)}));
-      next.moduleWork[number] = { notes:'', ...savedWork, completed:decisions.filter(item=>item.done).map(item=>item.text), decisions };
+      const conversation=Array.isArray(savedWork.conversation)
+        ? savedWork.conversation.filter(item=>item&&typeof item.text==='string').map((item,index)=>({
+            id:String(item.id||`conversation-${number}-${index+1}`),
+            type:item.type==='activity'?'activity':'message',
+            author:String(item.author||'Casal'),
+            text:item.text,
+            createdAt:item.createdAt||new Date().toISOString()
+          }))
+        : [];
+      next.moduleWork[number] = { notes:'', ...savedWork, completed:decisions.filter(item=>item.done).map(item=>item.text), decisions, conversation };
     });
     return next;
 }
@@ -198,6 +207,17 @@ function saveState(message) {
 }
 function nextId(items) { return Math.max(0, ...items.map(x => Number(x.id) || 0)) + 1; }
 function daysToWedding() { return Math.max(0, Math.ceil((new Date(state.couple.date) - new Date()) / 86400000)); }
+function currentPartnerName() { return String(state.couple.names||'').split('&')[0]?.trim()||'Tu'; }
+function conversationTime(value) {
+  const date=new Date(value);
+  if(Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('pt-PT',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}).format(date);
+}
+function conversationEntry(item) {
+  if(item.type==='activity') return `<div class="conversation-activity"><span>${h(item.text)}</span><time>${h(conversationTime(item.createdAt))}</time></div>`;
+  const author=item.author||'Casal';
+  return `<article class="conversation-message"><span class="mini-avatar">${h(author.charAt(0).toUpperCase())}</span><div><header><strong>${h(author)}</strong><time>${h(conversationTime(item.createdAt))}</time></header><p>${h(item.text)}</p></div></article>`;
+}
 function expenseTotals() {
   const contracted = state.expenses.reduce((s,x) => s + Number(x.total || 0), 0);
   const paid = state.expenses.reduce((s,x) => s + Number(x.paid || 0), 0);
@@ -378,6 +398,7 @@ function renderModuleDetail(number) {
   const guide = moduleBlueprints[number];
   const work = state.moduleWork[number];
   const decisions=work.decisions||[];
+  const conversation=work.conversation||[];
   const completedDecisions=decisions.filter(item=>item.done).length;
   const progress = moduleProgress(number);
   return `<div class="module-detail-actions"><button class="back-button" data-nav="casamento">${icon('close')} Voltar aos módulos</button>${guide.tool ? `<button class="button button-secondary" data-nav="${guide.tool[0]}">${guide.tool[1]} ${icon('plus')}</button>` : ''}</div>
@@ -391,8 +412,12 @@ function renderModuleDetail(number) {
         <ul class="module-checklist">${decisions.length?decisions.map(item=>`<li class="module-check ${item.done?'done':''}"><label><input type="checkbox" data-module-decision-toggle="${number}:${h(item.id)}" ${item.done?'checked':''}><span class="module-decision-text">${h(item.text)}</span></label><span class="module-decision-actions"><button class="edit-button" type="button" data-edit-module-decision="${number}:${h(item.id)}" aria-label="Editar decisão">${icon('edit')}</button><button class="delete-button" type="button" data-delete-module-decision="${number}:${h(item.id)}" aria-label="Eliminar decisão">×</button></span></li>`).join(''):'<li class="module-decisions-empty">Ainda não existem decisões. Acrescenta a primeira.</li>'}</ul>
       </div>
       <div class="stack">
-        <aside class="card reflection-card"><p class="eyebrow">CONVERSA A DOIS</p><blockquote>${guide.question}</blockquote></aside>
-        <aside class="card card-pad module-notes-card"><div class="card-header"><div><p class="eyebrow">NOTAS DO CASAL</p><h3>Decisões e ideias</h3></div></div><textarea class="textarea module-notes" data-module-notes="${number}" placeholder="Escrevam aqui o que ficou decidido…">${h(work.notes || '')}</textarea><button class="button button-primary" data-action="save-module-notes" data-module-number="${number}">Guardar notas</button></aside>
+        <aside class="card conversation-card">
+          <div class="conversation-prompt"><p class="eyebrow">CONVERSA A DOIS</p><h3>Histórico do casal</h3><span>Pergunta para começarem</span><blockquote>${guide.question}</blockquote></div>
+          <div class="conversation-history">${conversation.length?conversation.map(conversationEntry).join(''):'<p class="conversation-empty">Ainda não existem mensagens. Comecem por responder à pergunta acima.</p>'}</div>
+          <form class="conversation-form" data-module-conversation-form="${number}"><textarea class="textarea conversation-input" name="message" placeholder="Escreve uma mensagem para o teu par…" required></textarea><div class="conversation-actions"><small>A escrever como ${h(currentPartnerName())}</small><button class="button button-primary button-small" type="submit">Enviar</button></div></form>
+        </aside>
+        <aside class="card card-pad module-notes-card"><div class="card-header"><div><p class="eyebrow">NOTA PARTILHADA</p><h3>Decisões e ideias</h3><p>Um documento editável deste módulo, separado da conversa.</p></div></div><textarea class="textarea module-notes" data-module-notes="${number}" placeholder="Escrevam aqui o que ficou decidido…">${h(work.notes || '')}</textarea><div class="module-notes-footer"><small>Guardada no módulo ${number}</small><button class="button button-primary" data-action="save-module-notes" data-module-number="${number}">Guardar nota</button></div></aside>
       </div>
     </section>`;
 }
@@ -875,6 +900,15 @@ function bindViewEvents(){
     work.completed=work.decisions.filter(item=>item.done).map(item=>item.text);
     saveState(el.checked?'Decisão concluída.':'Decisão reaberta.');
   }));
+  $$('[data-module-conversation-form]').forEach(form=>form.addEventListener('submit',event=>{
+    event.preventDefault();
+    const number=form.dataset.moduleConversationForm;
+    const text=String(new FormData(form).get('message')||'').trim();
+    const work=state.moduleWork[number];
+    if(!text||!work) return;
+    work.conversation.push({id:`conversation-${Date.now().toString(36)}`,type:'message',author:currentPartnerName(),text,createdAt:new Date().toISOString()});
+    saveState('Mensagem guardada na conversa.');
+  }));
   $$('[data-module-check]').forEach(el=>el.addEventListener('change',()=>{
     const number=el.dataset.moduleCheck; const completed=state.moduleWork[number].completed;
     state.moduleWork[number].completed=el.checked?[...new Set([...completed,el.value])]:completed.filter(item=>item!==el.value);
@@ -934,8 +968,13 @@ function handleAction(action,source){
   if(action==='save-memory'){state.memory=$('#memory-text').value;return saveState('Memória guardada.');}
   if(action==='save-module-notes'){
     const number=source?.dataset.moduleNumber; if(!number) return;
-    state.moduleWork[number].notes=$(`[data-module-notes="${number}"]`).value;
-    return saveState('Notas guardadas.');
+    const work=state.moduleWork[number];
+    const nextNote=$(`[data-module-notes="${number}"]`).value;
+    if(work.notes!==nextNote){
+      work.notes=nextNote;
+      work.conversation.push({id:`conversation-${Date.now().toString(36)}`,type:'activity',author:'Sistema',text:`${currentPartnerName()} atualizou a nota partilhada.`,createdAt:new Date().toISOString()});
+    }
+    return saveState('Nota guardada neste módulo.');
   }
   if(action==='reset-data'){if(confirm('Repor todos os dados de demonstração?')){state=normaliseState(DEFAULT_STATE);localStorage.removeItem('agenda-noiva-state');saveState('Demonstração reposta.')}}
 }
