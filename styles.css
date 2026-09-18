@@ -236,9 +236,9 @@ tr:last-child td { border-bottom: 0; }
 .reflection-card .eyebrow { color:#d9bd91; }
 .reflection-card blockquote { margin:14px 0 2px; font:400 1.35rem/1.5 Georgia,serif; }
 .conversation-card { overflow:hidden; }
-.conversation-prompt { padding:26px; background:var(--plum); color:#fff; }
-.conversation-prompt .eyebrow { color:#d9bd91; }
-.conversation-prompt blockquote { margin:14px 0 2px; font:400 1.35rem/1.5 Georgia,serif; }
+.conversation-prompt { padding:26px; border-bottom:1px solid #ead7cf; background:linear-gradient(135deg,#fffdfb 0%,#f7ebe6 100%); color:var(--text); }
+.conversation-prompt .eyebrow { color:#b56f5a; }
+.conversation-prompt blockquote { margin:14px 0 2px; color:var(--plum); font:400 1.35rem/1.5 Georgia,serif; }
 .conversation-history { max-height:300px; min-height:90px; padding:16px 18px; display:grid; gap:12px; overflow:auto; background:#fffdfb; }
 .conversation-empty { align-self:center; margin:0; color:var(--muted); font-size:.75rem; line-height:1.55; text-align:center; }
 .conversation-message { display:grid; grid-template-columns:32px minmax(0,1fr); gap:9px; align-items:start; }
