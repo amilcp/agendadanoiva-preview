@@ -88,6 +88,7 @@ const DEFAULT_STATE = {
     { id: 10, time: '23:30', title: 'Corte do bolo', location: 'Quinta da Serra' },
   ],
   memory: '',
+  memoryEntries: [],
   inspirationFavorites: [],
   inspirationNotes: {},
   customInspirations: [],
@@ -158,6 +159,14 @@ function normaliseState(saved = {}) {
     });
     if (!next.couple || typeof next.couple !== 'object' || Array.isArray(next.couple)) next.couple = structuredClone(DEFAULT_STATE.couple);
     if (!Array.isArray(next.inspirationFavorites)) next.inspirationFavorites = [];
+    if (!Array.isArray(next.memoryEntries)) next.memoryEntries = [];
+    next.memoryEntries = next.memoryEntries.filter(item=>item&&typeof item.text==='string'&&item.text.trim()).map((item,index)=>({
+      id:String(item.id||`memory-${index+1}`),
+      text:item.text.trim(),
+      createdAt:item.createdAt||new Date().toISOString()
+    }));
+    if(String(next.memory||'').trim()&&!next.memoryEntries.length) next.memoryEntries.push({id:'memory-legacy',text:String(next.memory).trim(),createdAt:new Date().toISOString()});
+    next.memory='';
     if (!next.inspirationNotes || typeof next.inspirationNotes !== 'object' || Array.isArray(next.inspirationNotes)) next.inspirationNotes = {};
     if (!Array.isArray(next.adminInspirations)) next.adminInspirations = structuredClone(inspirationItems);
     next.adminInspirations = next.adminInspirations.map(item => ({ status:'published', featured:false, source:'', ...item, label:item.label||item.category||'Outra' }));
@@ -449,7 +458,11 @@ function renderDay() {
 }
 
 function renderMemories() {
-  return `<section class="card memory-card"><p class="eyebrow">WEDDING BOOK</p><blockquote>“Há momentos que merecem ficar por escrito.”</blockquote><textarea class="textarea" id="memory-text" placeholder="Escreve aqui uma memória, uma frase ou algo que não queres esquecer…">${h(state.memory || '')}</textarea><div class="page-actions" style="margin:14px 0 0">${button('Guardar memória','save-memory')}</div></section>`;
+  const memories=[...state.memoryEntries].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  return `<section class="card memory-card"><p class="eyebrow">WEDDING BOOK</p><blockquote>“Há momentos que merecem ficar por escrito.”</blockquote><textarea class="textarea" id="memory-text" placeholder="Escreve aqui uma memória, uma frase ou algo que não queres esquecer…"></textarea><div class="page-actions memory-save-actions">${button('Guardar memória','save-memory')}</div></section>
+    <section class="memory-archive"><div class="memory-archive-heading"><div><p class="eyebrow">ARQUIVO DO CASAL</p><h2>Memórias guardadas</h2></div><span>${memories.length} ${memories.length===1?'memória':'memórias'}</span></div>
+      ${memories.length?`<div class="memory-grid">${memories.map((item,index)=>`<article class="card memory-entry"><header><span>${String(memories.length-index).padStart(2,'0')}</span><time>${h(conversationTime(item.createdAt))}</time></header><p>${h(item.text)}</p><footer><button class="text-action" type="button" data-edit-memory="${h(item.id)}">Editar</button><button class="text-action danger-text" type="button" data-delete-memory="${h(item.id)}">Eliminar</button></footer></article>`).join('')}</div>`:'<div class="card memory-empty"><span>♡</span><strong>O vosso arquivo começa aqui.</strong><p>Escrevam a primeira memória para a encontrarem mais tarde.</p></div>'}
+    </section>`;
 }
 
 function renderInspiration() {
@@ -918,6 +931,20 @@ function bindViewEvents(){
     work.conversation.push({id:`conversation-${Date.now().toString(36)}`,type:'message',author:currentPartnerName(),text,createdAt:new Date().toISOString()});
     saveState('Mensagem guardada na conversa.');
   }));
+  $$('[data-edit-memory]').forEach(el=>el.addEventListener('click',()=>{
+    const item=state.memoryEntries.find(entry=>entry.id===el.dataset.editMemory);
+    if(!item) return;
+    const text=prompt('Editar memória:',item.text);
+    if(text===null||!text.trim()) return;
+    item.text=text.trim();
+    saveState('Memória atualizada.');
+  }));
+  $$('[data-delete-memory]').forEach(el=>el.addEventListener('click',()=>{
+    const item=state.memoryEntries.find(entry=>entry.id===el.dataset.deleteMemory);
+    if(!item||!confirm('Eliminar esta memória do arquivo?')) return;
+    state.memoryEntries=state.memoryEntries.filter(entry=>entry.id!==item.id);
+    saveState('Memória eliminada.');
+  }));
   $$('[data-module-check]').forEach(el=>el.addEventListener('change',()=>{
     const number=el.dataset.moduleCheck; const completed=state.moduleWork[number].completed;
     state.moduleWork[number].completed=el.checked?[...new Set([...completed,el.value])]:completed.filter(item=>item!==el.value);
@@ -974,7 +1001,13 @@ function handleAction(action,source){
   if(action==='account') return window.AgendaPlatform?.openAccount?.();
   if(action==='privacy') return window.AgendaPlatform?.openPrivacy?.();
   if(action==='print-dossier') return window.print();
-  if(action==='save-memory'){state.memory=$('#memory-text').value;return saveState('Memória guardada.');}
+  if(action==='save-memory'){
+    const text=$('#memory-text')?.value.trim();
+    if(!text) return toast('Escreve uma memória antes de guardar.');
+    state.memoryEntries.push({id:`memory-${Date.now().toString(36)}`,text,createdAt:new Date().toISOString()});
+    state.memory='';
+    return saveState('Memória adicionada ao arquivo.');
+  }
   if(action==='save-module-notes'){
     const number=source?.dataset.moduleNumber; if(!number) return;
     const work=state.moduleWork[number];
