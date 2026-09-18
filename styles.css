@@ -720,6 +720,18 @@ body.admin-route { background:#f4f1f3; }
 .admin-overview-grid { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(300px,.65fr); gap:16px; }
 .admin-panel { padding:22px; border-radius:13px; box-shadow:0 8px 26px rgba(62,38,53,.055); }
 .admin-panel > h2 { margin-bottom:16px; }
+.admin-consent-note { display:grid; grid-template-columns:auto 1fr; align-items:center; gap:14px; border-color:#e5c4b8; background:#fffaf7; }
+.admin-consent-note strong { color:var(--plum); font:400 1rem Georgia,serif; }
+.admin-consent-note p { margin:0; color:var(--muted); font-size:.72rem; line-height:1.55; }
+.admin-contact-toolbar { display:grid; grid-template-columns:minmax(220px,1fr) minmax(210px,280px); gap:12px; margin-bottom:16px; }
+.admin-contact-type { display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center; gap:9px; }
+.admin-contact-type > span { color:var(--muted); font-size:.65rem; font-weight:750; white-space:nowrap; }
+.admin-contact-table td:first-child strong,.admin-contact-table td:first-child small { display:block; }
+.admin-contact-table td:first-child strong { color:var(--plum); font-size:.76rem; }
+.admin-contact-table td:first-child small { margin-top:3px; color:var(--muted); font-size:.62rem; white-space:nowrap; }
+.admin-consent { display:inline-flex; padding:5px 7px; border-radius:99px; background:#f2ecef; color:#806f78; font-size:.58rem; font-weight:800; white-space:nowrap; }
+.admin-consent.aceite { background:#e8f3ec; color:#397355; }
+.admin-consent.nao_aceite { background:#f5eeee; color:#916161; }
 .admin-status-list { list-style:none; margin:5px 0 0; padding:0; }
 .admin-status-list li { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:11px 0; border-bottom:1px solid #eee7ea; color:#6b5f66; font-size:.75rem; }
 .admin-status-list li:last-child { border-bottom:0; }
@@ -854,6 +866,9 @@ td { font-size:.78rem; }
   .admin-overview-grid,.admin-flow-grid,.admin-plan-grid { grid-template-columns:1fr; }
   .admin-quick-grid { grid-template-columns:1fr; }
   .admin-panel { padding:17px; }
+  .admin-contact-toolbar { grid-template-columns:1fr; }
+  .admin-contact-type { grid-template-columns:1fr; }
+  .admin-consent-note { grid-template-columns:1fr; }
   .admin-sequence-grid,.admin-role-grid { grid-template-columns:1fr; }
   .admin-funnel { grid-template-columns:1fr; justify-content:stretch; gap:5px; overflow:visible; }
   .admin-funnel div { width:100%; min-width:0; display:grid; grid-template-columns:48px 1fr; align-items:center; padding:10px 13px; text-align:left; }
