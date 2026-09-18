@@ -344,6 +344,23 @@ tr:last-child td { border-bottom: 0; }
 .memory-card { padding: clamp(22px,4vw,42px); background: linear-gradient(130deg,#fffdfb,#faeae3); }
 .memory-card blockquote { margin: 0 0 18px; color: var(--plum); font: 400 1.5rem/1.4 Georgia,serif; }
 .memory-card textarea { min-height: 240px; resize: vertical; line-height: 1.7; }
+.memory-save-actions { margin:14px 0 0; }
+.memory-archive { margin-top:26px; }
+.memory-archive-heading { display:flex; align-items:flex-end; justify-content:space-between; gap:18px; margin:0 2px 14px; }
+.memory-archive-heading .eyebrow { color:#b56f5a; }
+.memory-archive-heading h2 { margin:5px 0 0; color:var(--plum); font:400 1.45rem Georgia,serif; }
+.memory-archive-heading > span { color:var(--muted); font-size:.7rem; }
+.memory-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.memory-entry { padding:19px; border-radius:11px; box-shadow:0 7px 22px rgba(75,47,67,.05); }
+.memory-entry header { display:flex; align-items:center; justify-content:space-between; gap:12px; padding-bottom:10px; border-bottom:1px solid var(--line); }
+.memory-entry header span { color:#bd806a; font:400 1.15rem Georgia,serif; }
+.memory-entry time { color:var(--muted); font-size:.62rem; }
+.memory-entry > p { margin:15px 0; color:var(--ink); font:400 .9rem/1.7 Georgia,serif; white-space:pre-wrap; }
+.memory-entry footer { display:flex; justify-content:flex-end; gap:13px; }
+.memory-empty { min-height:180px; padding:28px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+.memory-empty > span { color:#d99a82; font:400 2rem Georgia,serif; }
+.memory-empty strong { margin-top:7px; color:var(--plum); font:400 1.05rem Georgia,serif; }
+.memory-empty p { margin:5px 0 0; color:var(--muted); font-size:.73rem; }
 .empty-state { padding: 40px 20px; text-align: center; color: var(--muted); }
 .empty-state strong { display:block; color:var(--plum); font:400 1.15rem Georgia,serif; margin-bottom:8px; }
 
@@ -483,6 +500,9 @@ tr:last-child td { border-bottom: 0; }
   .more-menu-card { min-height:72px; padding:11px 12px; grid-template-columns:34px minmax(0,1fr) auto; gap:10px; }
   .more-menu-icon { width:34px; height:34px; }
   .more-menu-icon svg { width:16px; height:16px; }
+  .memory-grid { grid-template-columns:1fr; }
+  .memory-card textarea { min-height:190px; }
+  .memory-archive-heading { align-items:flex-start; }
   .danger-zone { align-items: stretch; flex-direction: column; }
   .backup-heading { align-items: stretch; flex-direction: column; }
   .account-summary { grid-template-columns: auto 1fr; }
