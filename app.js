@@ -167,7 +167,12 @@ function normaliseState(saved = {}) {
     modules.forEach(([number,,,seed]) => {
       const items = moduleBlueprints[number].items;
       const seeded = items.filter((_,index) => index < Math.round(items.length * seed / 100));
-      next.moduleWork[number] = { completed: seeded, notes: '', ...(next.moduleWork[number] || {}) };
+      const savedWork=next.moduleWork[number]||{};
+      const legacyCompleted=Array.isArray(savedWork.completed)?savedWork.completed:seeded;
+      const decisions=Array.isArray(savedWork.decisions)
+        ? savedWork.decisions.filter(item=>item&&typeof item.text==='string').map((item,index)=>({id:String(item.id||`decision-${number}-${index+1}`),text:item.text,done:Boolean(item.done)}))
+        : items.map((text,index)=>({id:`decision-${number}-${index+1}`,text,done:legacyCompleted.includes(text)}));
+      next.moduleWork[number] = { notes:'', ...savedWork, completed:decisions.filter(item=>item.done).map(item=>item.text), decisions };
     });
     return next;
 }
@@ -208,11 +213,21 @@ function publishedInspirations() {
   return state.adminInspirations.filter(item=>item.status==='published').sort((a,b)=>Number(b.featured)-Number(a.featured));
 }
 function route() { return location.hash.replace('#','') || 'dashboard'; }
-function navigate(to) { location.hash = to; }
+function scrollPageTop() {
+  document.documentElement.scrollTop=0;
+  document.body.scrollTop=0;
+  window.scrollTo(0,0);
+}
+function navigate(to) {
+  scrollPageTop();
+  if (route()===to) return render();
+  location.hash=to;
+}
 function moduleProgress(number) {
   const work = state.moduleWork?.[number];
-  const total = moduleBlueprints[number]?.items.length || 1;
-  return Math.round(((work?.completed?.length || 0) / total) * 100);
+  const decisions=work?.decisions||[];
+  const total=decisions.length||1;
+  return Math.round((decisions.filter(item=>item.done).length/total)*100);
 }
 
 const navItems = [
@@ -362,6 +377,8 @@ function renderModuleDetail(number) {
   const [,title] = moduleInfo;
   const guide = moduleBlueprints[number];
   const work = state.moduleWork[number];
+  const decisions=work.decisions||[];
+  const completedDecisions=decisions.filter(item=>item.done).length;
   const progress = moduleProgress(number);
   return `<div class="module-detail-actions"><button class="back-button" data-nav="casamento">${icon('close')} Voltar aos módulos</button>${guide.tool ? `<button class="button button-secondary" data-nav="${guide.tool[0]}">${guide.tool[1]} ${icon('plus')}</button>` : ''}</div>
     <section class="module-detail-hero card">
@@ -370,8 +387,8 @@ function renderModuleDetail(number) {
     </section>
     <section class="module-detail-grid">
       <div class="card card-pad">
-        <div class="card-header"><div><p class="eyebrow">PASSOS ESSENCIAIS</p><h2>Lista de decisões</h2></div><span class="meta">${work.completed.length}/${guide.items.length}</span></div>
-        <ul class="module-checklist">${guide.items.map(item=>`<li class="module-check ${work.completed.includes(item)?'done':''}"><label><input type="checkbox" data-module-check="${number}" value="${item}" ${work.completed.includes(item)?'checked':''}><span>${item}</span></label></li>`).join('')}</ul>
+        <div class="card-header module-decisions-header"><div><p class="eyebrow">PASSOS ESSENCIAIS</p><h2>Lista de decisões</h2></div><div class="module-decisions-tools"><span class="meta">${completedDecisions}/${decisions.length}</span><button class="button button-ghost button-small" type="button" data-add-module-decision="${number}">${icon('plus')} Acrescentar</button></div></div>
+        <ul class="module-checklist">${decisions.length?decisions.map(item=>`<li class="module-check ${item.done?'done':''}"><label><input type="checkbox" data-module-decision-toggle="${number}:${h(item.id)}" ${item.done?'checked':''}><span class="module-decision-text">${h(item.text)}</span></label><span class="module-decision-actions"><button class="edit-button" type="button" data-edit-module-decision="${number}:${h(item.id)}" aria-label="Editar decisão">${icon('edit')}</button><button class="delete-button" type="button" data-delete-module-decision="${number}:${h(item.id)}" aria-label="Eliminar decisão">×</button></span></li>`).join(''):'<li class="module-decisions-empty">Ainda não existem decisões. Acrescenta a primeira.</li>'}</ul>
       </div>
       <div class="stack">
         <aside class="card reflection-card"><p class="eyebrow">CONVERSA A DOIS</p><blockquote>${guide.question}</blockquote></aside>
@@ -394,13 +411,13 @@ function renderCommercialTables() {
 
 function renderPremiumTables() {
   const unassigned=state.guests.filter(g=>g.rsvp==='confirmado'&&!g.tableId);
-  return `${actionButtons([button('Adicionar mesa','add-table')])}<section class="premium-mode-banner">${icon('sparkles')} Planta visual Premium ativa</section><section class="seating-layout">
+  return `${actionButtons([button('Adicionar mesa','add-table')])}<section class="premium-mode-banner">${icon('sparkles')}<div><strong>Planta visual Premium</strong><span>Arrasta no computador ou escolhe a mesa no seletor de cada convidado.</span></div></section><section class="seating-layout">
     <aside class="card seating-panel"><h2>Sem mesa</h2><div class="guest-pool" data-drop-table="none">${unassigned.length?unassigned.map(guestChip).join(''):'<p class="meta">Todos os confirmados têm mesa.</p>'}</div></aside>
     <div class="floor">${state.tables.map(t=>{const guests=state.guests.filter(g=>g.tableId===t.id);const used=guests.reduce((sum,g)=>sum+Number(g.people||0),0);return `<article class="table-card" data-drop-table="${t.id}"><header><div><h3>${h(t.name)}</h3><span class="capacity">${used}/${t.capacity} lugares</span></div><span class="row-actions">${editButton('table',t.id,t.name)}<button class="delete-button" type="button" data-delete="table:${t.id}" aria-label="Eliminar ${h(t.name)}">×</button></span></header><div class="table-guests">${guests.map(guestChip).join('')}</div></article>`}).join('')}</div>
-    <aside class="card seating-panel"><h2>Resumo</h2><div class="grid grid-2">${statCard('Confirmados',guestCounts().confirmed,'pessoas',100)}${statCard('Mesas',state.tables.length,'criadas',100)}</div><p class="meta" style="margin-top:16px">Arrasta cada convidado para a mesa pretendida.</p></aside>
+    <aside class="card seating-panel"><h2>Resumo</h2><div class="grid grid-2">${statCard('Confirmados',guestCounts().confirmed,'pessoas',100)}${statCard('Mesas',state.tables.length,'criadas',100)}</div><p class="meta" style="margin-top:16px">A planta é interativa: reorganiza os convidados por arrastar ou através do seletor.</p></aside>
   </section>`;
 }
-function guestChip(g){return `<div class="guest-chip" draggable="true" data-guest-id="${g.id}"><span class="mini-avatar">${h(g.name[0])}</span><span>${h(g.name)}</span></div>`}
+function guestChip(g){return `<div class="guest-chip" draggable="true" data-guest-id="${g.id}"><span class="mini-avatar">${h(g.name[0])}</span><span>${h(g.name)}</span><select class="select guest-table-picker" data-guest-table-select="${g.id}" aria-label="Mesa de ${h(g.name)}"><option value="">Sem mesa</option>${state.tables.map(table=>`<option value="${table.id}" ${g.tableId===table.id?'selected':''}>${h(table.name)}</option>`).join('')}</select></div>`}
 
 function renderDay() {
   return `${actionButtons([button('Imprimir dossier','print-dossier','ghost','download'),button('Adicionar momento','add-timeline')])}<section class="grid grid-3" style="margin-bottom:16px">${statCard('Data',dateFmt.format(new Date(state.couple.date)),'o grande dia',100)}${statCard('Faltam',daysToWedding(),'dias',100)}${statCard('Momentos',state.timeline.length,'na timeline',100)}</section><section class="card card-pad"><div class="card-header"><div><h2>Timeline</h2><p>O plano operacional do dia.</p></div></div><ol class="timeline">${state.timeline.sort((a,b)=>a.time.localeCompare(b.time)).map(x=>`<li class="timeline-item"><span class="timeline-time">${h(x.time)}</span><i class="timeline-dot"></i><div class="timeline-copy"><strong>${h(x.title)}</strong><span>${h(x.location)}</span></div><span class="row-actions">${editButton('timeline',x.id,x.title)}<button class="delete-button" type="button" data-delete="timeline:${x.id}" aria-label="Eliminar momento">×</button></span></li>`).join('')}</ol></section>`;
@@ -670,15 +687,29 @@ const schemas = {
   'add-supplier': ['Adicionar fornecedor','supplier',[['service','Serviço','text',true],['name','Empresa ou profissional','text',true],['status','Estado','select:pendente|avaliacao|contratado',true],['contact','Contacto','text',false]]],
   'add-table': ['Adicionar mesa','table',[['name','Nome da mesa','text',true],['capacity','Capacidade','number',true]]],
   'add-timeline': ['Adicionar momento','timeline',[['time','Hora','time',true],['title','Momento','text',true],['location','Local','text',false]]],
+  'add-decision': ['Adicionar decisão','decision',[['title','Decisão','text',true]]],
 };
 function openModal(action, item = null) {
   const [title,entity,fields]=schemas[action];
   const form=$('#modal-form');
   $('#modal-title').textContent=item ? title.replace(/^(Nova|Adicionar)/,'Editar') : title;
   form.dataset.entity=entity;
+  delete form.dataset.moduleNumber;
   if(item) form.dataset.itemId=String(item.id); else delete form.dataset.itemId;
   $('#modal-fields').innerHTML=fields.map(([name,label,type,required])=>fieldMarkup(name,label,type,required)).join('');
   fields.forEach(([name])=>{const control=form.elements.namedItem(name);if(control&&item?.[name]!==undefined)control.value=item[name]});
+  modal.showModal();
+}
+function openDecisionModal(number,id='') {
+  const work=state.moduleWork[number];
+  const item=id?work?.decisions?.find(decision=>decision.id===id):null;
+  const form=$('#modal-form');
+  $('#modal-title').textContent=item?'Editar decisão':'Adicionar decisão';
+  form.dataset.entity='decision';
+  form.dataset.moduleNumber=number;
+  if(item) form.dataset.itemId=item.id; else delete form.dataset.itemId;
+  $('#modal-fields').innerHTML=fieldMarkup('title','Decisão','text',true);
+  form.elements.namedItem('title').value=item?.text||'';
   modal.showModal();
 }
 function openEdit(type,id) {
@@ -695,6 +726,20 @@ function fieldMarkup(name,label,type,required){
 function saveModal(form) {
   const data=Object.fromEntries(new FormData(form).entries());
   const entity=form.dataset.entity;
+  if(entity==='decision') {
+    const number=form.dataset.moduleNumber;
+    const decisions=state.moduleWork[number]?.decisions;
+    const text=String(data.title||'').trim();
+    if(!decisions||!text) return;
+    const itemId=form.dataset.itemId||'';
+    const existing=itemId?decisions.find(item=>item.id===itemId):null;
+    if(existing) existing.text=text;
+    else decisions.push({id:`decision-${Date.now().toString(36)}`,text,done:false});
+    state.moduleWork[number].completed=decisions.filter(item=>item.done).map(item=>item.text);
+    closeModal();
+    saveState(existing?'Decisão atualizada.':'Nova decisão acrescentada.');
+    return;
+  }
   const collection=entityCollections[entity];
   const itemId=Number(form.dataset.itemId || 0);
   const existing=itemId ? state[collection]?.find(item=>item.id===itemId) : null;
@@ -715,6 +760,7 @@ function closeModal() {
   const form=$('#modal-form');
   form.reset();
   delete form.dataset.itemId;
+  delete form.dataset.moduleNumber;
 }
 
 function deleteItem(type,id) {
@@ -806,6 +852,29 @@ function bindViewEvents(){
   $$('[data-task-toggle]').forEach(el=>el.addEventListener('change',()=>{const t=state.tasks.find(x=>x.id===Number(el.dataset.taskToggle));t.status=el.checked?'concluida':'pendente';saveState();}));
   $$('[data-delete]').forEach(el=>el.addEventListener('click',()=>{const [type,id]=el.dataset.delete.split(':');deleteItem(type,Number(id));}));
   $$('[data-guest-filter]').forEach(el=>el.addEventListener('click',()=>{guestFilter=el.dataset.guestFilter;render();}));
+  $$('[data-add-module-decision]').forEach(el=>el.addEventListener('click',()=>openDecisionModal(el.dataset.addModuleDecision)));
+  $$('[data-edit-module-decision]').forEach(el=>el.addEventListener('click',()=>{
+    const [number,id]=el.dataset.editModuleDecision.split(':');
+    openDecisionModal(number,id);
+  }));
+  $$('[data-delete-module-decision]').forEach(el=>el.addEventListener('click',()=>{
+    const [number,id]=el.dataset.deleteModuleDecision.split(':');
+    const work=state.moduleWork[number];
+    const decision=work?.decisions?.find(item=>item.id===id);
+    if(!decision||!confirm(`Eliminar a decisão “${decision.text}”?`)) return;
+    work.decisions=work.decisions.filter(item=>item.id!==id);
+    work.completed=work.decisions.filter(item=>item.done).map(item=>item.text);
+    saveState('Decisão eliminada.');
+  }));
+  $$('[data-module-decision-toggle]').forEach(el=>el.addEventListener('change',()=>{
+    const [number,id]=el.dataset.moduleDecisionToggle.split(':');
+    const work=state.moduleWork[number];
+    const decision=work?.decisions?.find(item=>item.id===id);
+    if(!decision) return;
+    decision.done=el.checked;
+    work.completed=work.decisions.filter(item=>item.done).map(item=>item.text);
+    saveState(el.checked?'Decisão concluída.':'Decisão reaberta.');
+  }));
   $$('[data-module-check]').forEach(el=>el.addEventListener('change',()=>{
     const number=el.dataset.moduleCheck; const completed=state.moduleWork[number].completed;
     state.moduleWork[number].completed=el.checked?[...new Set([...completed,el.value])]:completed.filter(item=>item!==el.value);
@@ -951,7 +1020,8 @@ $('#global-search').addEventListener('click',()=>{
   if(match){navigate(match[0]);toast('Resultado encontrado.');}else toast('Não encontrámos resultados.');
 });
 $('.notification-button').addEventListener('click',()=>toast('Não tens notificações novas.'));
-window.addEventListener('hashchange',render);
+window.addEventListener('hashchange',()=>{scrollPageTop();render();});
+scrollPageTop();
 render();
 
 window.AgendaApp = {
